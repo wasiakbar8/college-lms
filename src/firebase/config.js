@@ -11,7 +11,14 @@ const firebaseConfig = {
   appId: "1:386569861400:web:636e7db75c81353f75466d",
 };
 
+// Primary app — admin session
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Secondary app — only for creating new student accounts
+// Prevents Firebase from auto-switching admin session to the new student
+const secondaryApp = initializeApp(firebaseConfig, "secondary");
+export const secondaryAuth = getAuth(secondaryApp);
+
 export default app;
