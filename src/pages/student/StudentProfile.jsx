@@ -3,20 +3,39 @@ import { useAuth } from "../../context/AuthContext";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase/config";
 
+// Helper to get full name if stored as ID
+const DEPARTMENTS = {
+  cs: "Computer Science",
+  ir: "International Relations",
+  edu: "Education",
+  bus: "Business Administration",
+  eng: "English",
+  math: "Mathematics",
+};
+
 export default function StudentProfile() {
   const { userData, currentUser } = useAuth();
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ phone: userData?.phone || "", address: userData?.address || "" });
+  const [form, setForm] = useState({ 
+    phone: userData?.phone || "", 
+    address: userData?.address || "" 
+  });
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
   async function handleSave() {
     setSaving(true);
     try {
-      await updateDoc(doc(db, "students", currentUser.uid), { phone: form.phone, address: form.address });
-      setSuccess(true); setEditing(false);
+      await updateDoc(doc(db, "students", currentUser.uid), { 
+        phone: form.phone, 
+        address: form.address 
+      });
+      setSuccess(true); 
+      setEditing(false);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (e) { alert("Error: " + e.message); }
+    } catch (e) { 
+      alert("Error: " + e.message); 
+    }
     setSaving(false);
   }
 
@@ -29,6 +48,9 @@ export default function StudentProfile() {
     { label: "City", value: userData?.city, icon: "🏙️" },
     { label: "Address", value: userData?.address, icon: "🏠", editable: true, key: "address", full: true },
   ];
+
+  // Logic to determine the Program/Department Name
+  const displayDept = DEPARTMENTS[userData?.dept] || userData?.dept || userData?.program || "General";
 
   return (
     <div>
@@ -59,33 +81,27 @@ export default function StudentProfile() {
               {userData?.name?.charAt(0) || "S"}
             </div>
             <h3 style={{ fontFamily:"'Playfair Display',serif", fontSize:20, color:"var(--primary)", marginBottom:4 }}>{userData?.name}</h3>
-            <p style={{ color:"var(--text-muted)", fontSize:13, marginBottom:12 }}>S/O {userData?.fatherName}</p>
+            <p style={{ color:"var(--text-muted)", fontSize:13, marginBottom:4 }}>S/O {userData?.fatherName}</p>
+            {/* Added Department display here for visibility */}
+            <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginBottom: 12 }}>{displayDept}</p>
             <div style={{ display:"inline-block", padding:"5px 16px", background:"#dbeafe", color:"#1d4ed8", borderRadius:20, fontSize:12, fontWeight:600 }}>Roll: {userData?.rollNo}</div>
           </div>
 
           <div className="card" style={{ padding:22 }}>
-            <div className="section-header">Enrolled Programs</div>
-            {(userData?.programs || []).length === 0 && (
-              <p style={{ color:"var(--text-muted)", fontSize:13 }}>No programs found.</p>
-            )}
-            {(userData?.programs || []).map((p, i) => (
-              <div key={i} style={{ background:"#f8fafc", borderRadius:10, padding:"12px 14px", marginBottom:10, border:"1px solid var(--border)" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
-                  <span style={{ fontSize:18 }}>🎓</span>
-                  <div style={{ fontWeight:600, fontSize:13, color:"var(--primary)" }}>{p.title}</div>
-                </div>
-                <div style={{ fontSize:11, color:"var(--text-muted)", display:"grid", gridTemplateColumns:"1fr 1fr", gap:4 }}>
-                  <span>Session: {p.session}</span>
-                  <span>Shift: {p.shift}</span>
-                  <span>Roll: {p.rollNo}</span>
-                  <span>Reg: {p.regNo}</span>
-                  {p.dmcNo && <span style={{ gridColumn:"1/-1" }}>DMC: {p.dmcNo}</span>}
-                </div>
-                {i === (userData?.programs || []).length - 1 && (
-                  <div style={{ marginTop:6 }}><span className="badge badge-success" style={{ fontSize:10 }}>Active</span></div>
-                )}
+            <div className="section-header">Academic Status</div>
+            <div style={{ background:"#f8fafc", borderRadius:10, padding:"12px 14px", border:"1px solid var(--border)" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+                <span style={{ fontSize:18 }}>🎓</span>
+                <div style={{ fontWeight:700, fontSize:13, color:"var(--primary)" }}>{displayDept}</div>
               </div>
-            ))}
+              <div style={{ fontSize:11, color:"var(--text-muted)", display:"grid", gridTemplateColumns:"1fr 1fr", gap:4 }}>
+                <span>Semester: {userData?.sem || userData?.semester || "1"}</span>
+                <span>Session: {userData?.session}</span>
+                <span>Shift: {userData?.shift}</span>
+                <span>Roll: {userData?.rollNo}</span>
+              </div>
+              <div style={{ marginTop:8 }}><span className="badge badge-success" style={{ fontSize:10 }}>Current Enrollment</span></div>
+            </div>
           </div>
         </div>
 
@@ -108,7 +124,8 @@ export default function StudentProfile() {
           <div className="section-header" style={{ marginTop:28 }}>Academic Information</div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
             {[
-              { label: "Program", value: userData?.program },
+              { label: "Department / Program", value: displayDept },
+              { label: "Current Semester", value: userData?.sem || userData?.semester },
               { label: "Session", value: userData?.session },
               { label: "Shift", value: userData?.shift },
               { label: "Roll No", value: userData?.rollNo },

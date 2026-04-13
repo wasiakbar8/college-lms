@@ -1,144 +1,240 @@
-import React, { useEffect, useState } from "react";
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import React, { useEffect, useState, useMemo } from "react";
+import { collection, setDoc, doc, onSnapshot, query, where, getDocs, orderBy } from "firebase/firestore";
 import { db } from "../../firebase/config";
+import { toast, Toaster } from "react-hot-toast";
+import { X, Calendar, ArrowLeft, BookOpen, PlusCircle, User, Hash, ListOrdered } from "lucide-react";
 
-const SEMESTERS = ["1st Semester","2nd Semester","3rd Semester","4th Semester","5th Semester","6th Semester","7th Semester","8th Semester"];
-const EMPTY = { rollNo:"", courseId:"", subjectTitle:"", teacher:"", semester:"1st Semester", lectures:0, present:0, leave:0, absent:0 };
+const DEPARTMENTS = [
+  { id: "cs", name: "Computer Science", icon: "💻", bg: "#E6F1FB", color: "#185FA5" },
+  { id: "ir", name: "International Relations", icon: "🌍", bg: "#E1F5EE", color: "#0F6E56" },
+  { id: "edu", name: "Education", icon: "📚", bg: "#FAEEDA", color: "#854F0B" },
+  { id: "bus", name: "Business Administration", icon: "📊", bg: "#FAECE7", color: "#993C1D" },
+  { id: "eng", name: "English", icon: "✍️", bg: "#EEEDFE", color: "#534AB7" },
+  { id: "math", name: "Mathematics", icon: "🔢", bg: "#EAF3DE", color: "#3B6D11" },
+];
+
+const SEMESTERS = ["1st Semester", "2nd Semester", "3rd Semester", "4th Semester", "5th Semester", "6th Semester", "7th Semester", "8th Semester"];
+
+const STATUS = {
+  P: { label: "Present", bg: "#dcfce7", text: "#16a34a" },
+  A: { label: "Absent", bg: "#fee2e2", text: "#dc2626" },
+  L: { label: "Leave", bg: "#fef3c7", text: "#d97706" },
+};
 
 export default function AdminAttendance() {
-  const [records, setRecords] = useState([]);
+  const [view, setView] = useState("depts");
+  const [activeDept, setActiveDept] = useState(null);
+  const [activeSem, setActiveSem] = useState("1st Semester");
+  const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState(EMPTY);
-  const [saving, setSaving] = useState(false);
-  const [search, setSearch] = useState("");
-  const [filterSem, setFilterSem] = useState("All");
 
-  useEffect(() => { load(); }, []);
-  async function load() {
-    setLoading(true);
-    const snap = await getDocs(collection(db,"attendance"));
-    setRecords(snap.docs.map(d=>({id:d.id,...d.data()})));
-    setLoading(false);
-  }
+  // Modal States
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [markMode, setMarkMode] = useState("daily"); // "daily" or "lectures"
 
-  function openAdd() { setForm(EMPTY); setEditing(null); setShowModal(true); }
-  function openEdit(r) { setForm(r); setEditing(r.id); setShowModal(true); }
-
-  async function handleSave() {
-    if (!form.rollNo || !form.subjectTitle) { alert("Roll No and Subject Title are required."); return; }
-    setSaving(true);
-    try {
-      const { id, ...data } = form;
-      const numData = { ...data, lectures:Number(data.lectures)||0, present:Number(data.present)||0, leave:Number(data.leave)||0, absent:Number(data.absent)||0 };
-      if (editing) await updateDoc(doc(db,"attendance",editing), numData);
-      else await addDoc(collection(db,"attendance"), numData);
-      setShowModal(false); load();
-    } catch(e) { alert("Error: "+e.message); }
-    setSaving(false);
-  }
-
-  async function handleDelete(id) {
-    if (!window.confirm("Delete this record?")) return;
-    await deleteDoc(doc(db,"attendance",id)); load();
-  }
-
-  const filtered = records.filter(r => {
-    const ms = r.rollNo?.toLowerCase().includes(search.toLowerCase()) || r.subjectTitle?.toLowerCase().includes(search.toLowerCase());
-    const msem = filterSem==="All" || r.semester===filterSem;
-    return ms && msem;
+  // Form State
+  const [entryForm, setEntryForm] = useState({
+    courseTitle: "", courseCode: "", teacher: "", date: new Date().toISOString().split("T")[0],
+    status: "P", totalLectures: "", present: "", leave: ""
   });
 
-  function getPct(r) { return r.lectures>0?Math.round((r.present/r.lectures)*100):0; }
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "students"), (snap) => {
+      setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
 
-  return (
-    <div>
-      <div className="page-header">
-        <div><h2>Attendance Management</h2><div className="page-header-sub">Record and update student attendance</div></div>
-        <button className="btn btn-primary" onClick={openAdd}>+ Add Record</button>
-      </div>
+  const filteredStudents = useMemo(() => {
+    if (!activeDept) return [];
+    return students.filter(s => s.dept === activeDept.id);
+  }, [students, activeDept]);
 
-      <div style={{ display:"flex",gap:12,marginBottom:18,flexWrap:"wrap" }}>
-        <input className="form-control" style={{ maxWidth:340 }} placeholder="🔍 Search by roll no or subject..." value={search} onChange={e=>setSearch(e.target.value)} />
-        <select className="form-control" style={{ width:180 }} value={filterSem} onChange={e=>setFilterSem(e.target.value)}>
-          <option value="All">All Semesters</option>
-          {SEMESTERS.map(s=><option key={s}>{s}</option>)}
-        </select>
-      </div>
+  const openAddAttendance = (student) => {
+    setSelectedStudent(student);
+    setEntryForm({
+      courseTitle: "", courseCode: "", teacher: "", date: new Date().toISOString().split("T")[0],
+      status: "P", totalLectures: "", present: "", leave: ""
+    });
+    setShowAddModal(true);
+  };
 
-      <div className="card" style={{ padding:0 }}>
-        <div className="table-wrap">
-          {loading ? <div className="empty-state"><p>Loading...</p></div> : (
-            <table>
-              <thead>
-                <tr><th>#</th><th>Roll No</th><th>Subject</th><th>Semester</th><th>Total</th><th>Present</th><th>Leave</th><th>Absent</th><th>%</th><th>Actions</th></tr>
-              </thead>
-              <tbody>
-                {filtered.map((r,i)=>{
-                  const pct = getPct(r);
-                  const color = pct>=75?"var(--success)":pct>=60?"var(--warning)":"var(--danger)";
-                  return (
-                    <tr key={r.id}>
-                      <td>{i+1}</td>
-                      <td><span className="badge badge-primary">{r.rollNo}</span></td>
-                      <td>
-                        <div style={{ fontWeight:500 }}>{r.subjectTitle}</div>
-                        <div style={{ fontSize:11,color:"var(--text-muted)" }}>{r.courseId}</div>
-                      </td>
-                      <td style={{ fontSize:12 }}>{r.semester}</td>
-                      <td style={{ textAlign:"center" }}>{r.lectures}</td>
-                      <td style={{ textAlign:"center",color:"var(--success)",fontWeight:600 }}>{r.present}</td>
-                      <td style={{ textAlign:"center",color:"var(--warning)" }}>{r.leave}</td>
-                      <td style={{ textAlign:"center",color:"var(--danger)" }}>{r.absent}</td>
-                      <td style={{ minWidth:100 }}>
-                        <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-                          <div className="progress-bar" style={{ flex:1 }}><div className="progress-fill" style={{ width:`${pct}%`,background:color }} /></div>
-                          <span style={{ fontSize:12,fontWeight:700,color,minWidth:32 }}>{pct}%</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div style={{ display:"flex",gap:8 }}>
-                          <button className="btn btn-outline btn-sm" onClick={()=>openEdit(r)}>✏️</button>
-                          <button className="btn btn-danger btn-sm" onClick={()=>handleDelete(r.id)}>🗑️</button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {filtered.length===0&&<tr><td colSpan={10}><div className="empty-state"><p>No records found</p></div></td></tr>}
-              </tbody>
-            </table>
-          )}
+  const handleSaveEntry = async () => {
+    if (!entryForm.courseTitle || !entryForm.teacher) {
+      toast.error("Course Title and Teacher are required");
+      return;
+    }
+
+    try {
+      const baseData = {
+        courseTitle: entryForm.courseTitle,
+        courseCode: entryForm.courseCode,
+        teacher: entryForm.teacher,
+        studentName: selectedStudent.name,
+        rollNo: selectedStudent.rollNo,
+        dept: activeDept.id,
+        semester: activeSem,
+        timestamp: new Date().toISOString(),
+        markMode: markMode
+      };
+
+      if (markMode === "daily") {
+        const docId = `${entryForm.date}_${selectedStudent.rollNo}_${entryForm.courseCode || 'gen'}`;
+        await setDoc(doc(doc(db, "dailyAttendance", docId)), {
+          ...baseData,
+          date: entryForm.date,
+          status: entryForm.status
+        });
+      } else {
+        // Lecture Mode Logic
+        const total = Number(entryForm.totalLectures);
+        const pres = Number(entryForm.present);
+        const lve = Number(entryForm.leave || 0);
+        const abs = total - (pres + lve);
+
+        if (pres + lve > total) {
+          toast.error("Present + Leave cannot exceed Total Lectures");
+          return;
+        }
+
+        const docId = `summary_${Date.now()}_${selectedStudent.rollNo}`;
+        await setDoc(doc(db, "dailyAttendance", docId), {
+          ...baseData,
+          date: new Date().toISOString().split("T")[0], // Summary uses current date as ref
+          totalLectures: total,
+          present: pres,
+          leave: lve,
+          absent: abs,
+          status: "Summary" // Custom status for summaries
+        });
+      }
+
+      toast.success("Attendance marked successfully!");
+      setShowAddModal(false);
+    } catch (e) { toast.error("Save failed: " + e.message); }
+  };
+
+  if (view === "depts") {
+    return (
+      <div style={{ padding: 32, background: "#f4f6fb", minHeight: "100vh" }}>
+        <Toaster />
+        <h2 style={{ fontWeight: 800 }}>Attendance System</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20, marginTop: 24 }}>
+          {DEPARTMENTS.map(dept => (
+            <div key={dept.id} onClick={() => { setActiveDept(dept); setView("marking"); }}
+                 className="card" style={{ background: "#fff", padding: 24, borderRadius: 20, cursor: "pointer", border: "1px solid #e2e8f0" }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>{dept.icon}</div>
+              <h3>{dept.name}</h3>
+              <div style={{ fontSize: 12, color: dept.color, fontWeight: 700, marginTop: 8 }}>Enter Department →</div>
+            </div>
+          ))}
         </div>
       </div>
+    );
+  }
 
-      {showModal && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h3>{editing?"Edit Attendance":"Add Attendance Record"}</h3>
-              <button className="btn btn-ghost btn-icon" onClick={()=>setShowModal(false)}>✕</button>
+  return (
+    <div style={{ padding: 32, background: "#f4f6fb", minHeight: "100vh" }}>
+      <Toaster />
+      <button onClick={() => setView("depts")} style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", color: "#6366f1", cursor: "pointer", fontWeight: 700, marginBottom: 20 }}>
+        <ArrowLeft size={18} /> Back
+      </button>
+
+      <div style={{ background: "#fff", borderRadius: 24, padding: 24, border: "1px solid #e2e8f0" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <h2 style={{ margin: 0 }}>{activeDept.icon} {activeDept.name}</h2>
+          <select value={activeSem} onChange={e => setActiveSem(e.target.value)} style={{ padding: "10px 16px", borderRadius: 12, border: "1px solid #e2e8f0", fontWeight: 600 }}>
+            {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead style={{ background: "#f8fafc", color: "#64748b" }}>
+            <tr>
+              <th style={{ padding: 16, textAlign: "left" }}>STUDENT INFO</th>
+              <th style={{ padding: 16, textAlign: "right" }}>MARK ATTENDANCE</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredStudents.map(student => (
+              <tr key={student.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                <td style={{ padding: 16 }}>
+                  <div style={{ fontWeight: 700, color: "#1e293b" }}>{student.name}</div>
+                  <div style={{ fontSize: 12, color: "#94a3b8" }}>Roll No: {student.rollNo}</div>
+                </td>
+                <td style={{ padding: 16, textAlign: "right" }}>
+                  <button onClick={() => openAddAttendance(student)} 
+                    style={{ background: "#6366f1", color: "#fff", border: "none", padding: "10px 18px", borderRadius: 12, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 700 }}>
+                    <PlusCircle size={16} /> Mark
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ── MODAL: MARKING ── */}
+      {showAddModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}>
+          <div style={{ background: "#fff", width: "100%", maxWidth: "480px", borderRadius: 24, overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}>
+            <div style={{ background: "#1e293b", padding: "20px 24px", color: "#fff", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ margin: 0, fontSize: 18 }}>Mark Attendance</h3>
+              <X onClick={() => setShowAddModal(false)} style={{ cursor: "pointer" }} />
             </div>
-            <div className="form-row">
-              <div className="form-group"><label>Roll No *</label><input className="form-control" placeholder="Student roll number" value={form.rollNo} onChange={e=>setForm({...form,rollNo:e.target.value})} /></div>
-              <div className="form-group"><label>Course ID</label><input className="form-control" placeholder="e.g. IRS-728" value={form.courseId} onChange={e=>setForm({...form,courseId:e.target.value})} /></div>
-              <div className="form-group full-width"><label>Subject Title *</label><input className="form-control" placeholder="Full subject name" value={form.subjectTitle} onChange={e=>setForm({...form,subjectTitle:e.target.value})} /></div>
-              <div className="form-group"><label>Teacher</label><input className="form-control" value={form.teacher} onChange={e=>setForm({...form,teacher:e.target.value})} /></div>
-              <div className="form-group">
-                <label>Semester</label>
-                <select className="form-control" value={form.semester} onChange={e=>setForm({...form,semester:e.target.value})}>
-                  {SEMESTERS.map(s=><option key={s}>{s}</option>)}
-                </select>
-              </div>
-              <div className="form-group"><label>Total Lectures</label><input className="form-control" type="number" min="0" value={form.lectures} onChange={e=>setForm({...form,lectures:e.target.value})} /></div>
-              <div className="form-group"><label>Present</label><input className="form-control" type="number" min="0" value={form.present} onChange={e=>setForm({...form,present:e.target.value})} /></div>
-              <div className="form-group"><label>Leave</label><input className="form-control" type="number" min="0" value={form.leave} onChange={e=>setForm({...form,leave:e.target.value})} /></div>
-              <div className="form-group"><label>Absent</label><input className="form-control" type="number" min="0" value={form.absent} onChange={e=>setForm({...form,absent:e.target.value})} /></div>
+
+            {/* Mode Switcher */}
+            <div style={{ display: "flex", background: "#f1f5f9", margin: "20px 24px 0", borderRadius: 12, padding: 4 }}>
+               <button onClick={() => setMarkMode("daily")} style={{ flex: 1, padding: "8px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, background: markMode === "daily" ? "#fff" : "transparent", boxShadow: markMode === "daily" ? "0 2px 4px rgba(0,0,0,0.05)" : "none", color: markMode === "daily" ? "#6366f1" : "#64748b" }}>Daily (Single)</button>
+               <button onClick={() => setMarkMode("lectures")} style={{ flex: 1, padding: "8px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, background: markMode === "lectures" ? "#fff" : "transparent", boxShadow: markMode === "lectures" ? "0 2px 4px rgba(0,0,0,0.05)" : "none", color: markMode === "lectures" ? "#6366f1" : "#64748b" }}>Lectures (Bulk)</button>
             </div>
-            <div style={{ display:"flex",gap:10,justifyContent:"flex-end",marginTop:16 }}>
-              <button className="btn btn-outline" onClick={()=>setShowModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving?"Saving...":"💾 Save"}</button>
+
+            <div style={{ padding: "20px 24px 24px" }}>
+               <div style={{ marginBottom: 15, background: "#f8fafc", padding: 12, borderRadius: 14, border: "1px solid #e2e8f0" }}>
+                  <div style={{ fontSize: 14, fontWeight: 800 }}>{selectedStudent?.name}</div>
+                  <div style={{ fontSize: 12, color: "#64748b" }}>{selectedStudent?.rollNo} • {activeSem}</div>
+               </div>
+
+               <div style={{ display: "grid", gap: 12 }}>
+                  <input style={{ width: "100%", padding: "12px", borderRadius: 12, border: "1px solid #e2e8f0" }} placeholder="Course Title" value={entryForm.courseTitle} onChange={e => setEntryForm({...entryForm, courseTitle: e.target.value})} />
+                  
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <input style={{ width: "100%", padding: "12px", borderRadius: 12, border: "1px solid #e2e8f0" }} placeholder="Course Code" value={entryForm.courseCode} onChange={e => setEntryForm({...entryForm, courseCode: e.target.value})} />
+                    <input style={{ width: "100%", padding: "12px", borderRadius: 12, border: "1px solid #e2e8f0" }} placeholder="Teacher" value={entryForm.teacher} onChange={e => setEntryForm({...entryForm, teacher: e.target.value})} />
+                  </div>
+
+                  {markMode === "daily" ? (
+                    /* DAILY MODE FIELDS */
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                      <input type="date" style={{ width: "100%", padding: "12px", borderRadius: 12, border: "1px solid #e2e8f0" }} value={entryForm.date} onChange={e => setEntryForm({...entryForm, date: e.target.value})} />
+                      <select style={{ width: "100%", padding: "12px", borderRadius: 12, border: "1px solid #e2e8f0" }} value={entryForm.status} onChange={e => setEntryForm({...entryForm, status: e.target.value})}>
+                        {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                      </select>
+                    </div>
+                  ) : (
+                    /* LECTURE MODE FIELDS */
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                      <div>
+                        <label style={{ fontSize: 10, fontWeight: 800, color: "#94a3b8" }}>TOTAL</label>
+                        <input type="number" style={{ width: "100%", padding: "12px", borderRadius: 12, border: "1px solid #e2e8f0" }} placeholder="10" value={entryForm.totalLectures} onChange={e => setEntryForm({...entryForm, totalLectures: e.target.value})} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 10, fontWeight: 800, color: "#94a3b8" }}>PRESENT</label>
+                        <input type="number" style={{ width: "100%", padding: "12px", borderRadius: 12, border: "1px solid #e2e8f0" }} placeholder="8" value={entryForm.present} onChange={e => setEntryForm({...entryForm, present: e.target.value})} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 10, fontWeight: 800, color: "#94a3b8" }}>LEAVE</label>
+                        <input type="number" style={{ width: "100%", padding: "12px", borderRadius: 12, border: "1px solid #e2e8f0" }} placeholder="1" value={entryForm.leave} onChange={e => setEntryForm({...entryForm, leave: e.target.value})} />
+                      </div>
+                    </div>
+                  )}
+               </div>
+
+               <button onClick={handleSaveEntry} style={{ width: "100%", background: "#6366f1", color: "#fff", border: "none", padding: 14, borderRadius: 12, marginTop: 20, fontWeight: 800, cursor: "pointer" }}>
+                  Save Record
+               </button>
             </div>
           </div>
         </div>

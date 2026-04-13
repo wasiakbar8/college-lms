@@ -1,32 +1,32 @@
-import React, { useEffect, useState } from "react";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import React, { useEffect, useState, useMemo } from "react";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "../../firebase/config";
 import { useAuth } from "../../context/AuthContext";
+import { Printer, TrendingUp, BookOpen, Award, CheckCircle2 } from "lucide-react";
 
-const SEMESTERS = ["1st Semester","2nd Semester","3rd Semester","4th Semester","5th Semester","6th Semester","7th Semester","8th Semester"];
-const GRADE_POINTS = { "A+":4.0,"A":4.0,"A-":3.7,"B+":3.3,"B":3.0,"B-":2.7,"C+":2.3,"C":2.0,"C-":1.7,"D+":1.3,"D":1.0,"F":0.0 };
-const GRADE_COLORS = { "A+":"#16a34a","A":"#16a34a","A-":"#22c55e","B+":"#2563a8","B":"#2563a8","B-":"#3b82f6","C+":"#d97706","C":"#d97706","C-":"#f59e0b","D+":"#ea580c","D":"#dc2626","F":"#dc2626" };
+const DEPARTMENTS = [
+  { id: "cs",   name: "Computer Science"        },
+  { id: "ir",   name: "International Relations" },
+  { id: "edu",  name: "Education"               },
+  { id: "bus",  name: "Business Administration" },
+  { id: "eng",  name: "English"                 },
+  { id: "math", name: "Mathematics"             },
+];
 
-function getGradeColor(g) { return GRADE_COLORS[g] || "#64748b"; }
-function calcSGPA(courses) {
-  const totalQP = courses.reduce((a,c) => a + (GRADE_POINTS[c.grade]||0) * (c.creditHours||0), 0);
-  const totalCH = courses.reduce((a,c) => a + (c.creditHours||0), 0);
-  return totalCH > 0 ? (totalQP / totalCH).toFixed(2) : "0.00";
-}
-function calcCGPA(semMap) {
-  let totalQP = 0, totalCH = 0;
-  Object.values(semMap).forEach(courses => {
-    courses.forEach(c => { totalQP += (GRADE_POINTS[c.grade]||0) * (c.creditHours||0); totalCH += (c.creditHours||0); });
-  });
-  return totalCH > 0 ? (totalQP / totalCH).toFixed(2) : "0.00";
-}
-function getClassification(cgpa) {
-  if (cgpa >= 3.7) return { label:"Distinction", color:"#16a34a" };
-  if (cgpa >= 3.0) return { label:"First Division", color:"#2563a8" };
-  if (cgpa >= 2.0) return { label:"Second Division", color:"#d97706" };
-  if (cgpa >= 1.0) return { label:"Third Division", color:"#ea580c" };
-  return { label:"Fail", color:"#dc2626" };
-}
+const SEMESTERS = [
+  "1st Semester","2nd Semester","3rd Semester","4th Semester",
+  "5th Semester","6th Semester","7th Semester","8th Semester",
+];
+
+const GRADE_POINTS = {
+  "A+":4.0,"A":4.0,"A-":3.7,"B+":3.3,"B":3.0,"B-":2.7,
+  "C+":2.3,"C":2.0,"C-":1.7,"D+":1.3,"D":1.0,"F":0.0,
+};
+
+const c = {
+  primary: "#6366f1", success: "#10b981", danger: "#ef4444",
+  sub: "#6b7280", border: "#e5e7eb", bg: "#f8fafc", text: "#1e293b",
+};
 
 export default function StudentResults() {
   const { userData } = useAuth();
@@ -35,175 +35,175 @@ export default function StudentResults() {
   const [activeSem, setActiveSem] = useState("1st Semester");
 
   useEffect(() => {
-    if (!userData?.rollNo) return;
-    async function load() {
-      try {
-        const snap = await getDocs(query(collection(db, "results"), where("rollNo", "==", userData.rollNo)));
-        setResults(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      } catch(e) { console.error(e); }
+    if (!userData?.rollNo) {
       setLoading(false);
+      return;
     }
-    load();
+
+    const q = query(collection(db, "results"), where("rollNo", "==", userData.rollNo));
+    
+    const unsub = onSnapshot(q, (snap) => {
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setResults(docs);
+      setLoading(false);
+
+      // Set active tab to the latest semester that has data
+      if (docs.length > 0) {
+        const sortedResults = [...docs].sort((a, b) => 
+            SEMESTERS.indexOf(b.semester) - SEMESTERS.indexOf(a.semester)
+        );
+        setActiveSem(sortedResults[0].semester);
+      }
+    });
+
+    return () => unsub();
   }, [userData]);
 
-  const semMap = {};
-  results.forEach(r => { if (!semMap[r.semester]) semMap[r.semester] = []; semMap[r.semester].push(r); });
-  const cgpa = calcCGPA(semMap);
-  const classification = getClassification(parseFloat(cgpa));
-  const cgpaColor = parseFloat(cgpa) >= 3.0 ? "#16a34a" : parseFloat(cgpa) >= 2.0 ? "#d97706" : "#dc2626";
-  const semCourses = semMap[activeSem] || [];
-  const sgpa = semCourses.length > 0 ? calcSGPA(semCourses) : null;
-  const availableSems = SEMESTERS.filter(s => semMap[s]);
+  // Calculations for overall degree
+  const stats = useMemo(() => {
+    let totalQualityPoints = 0;
+    let totalCreditHours = 0;
+    let totalMarksObtained = 0;
+    let totalMaxMarks = 0;
+
+    results.forEach(r => {
+      const gp = GRADE_POINTS[r.grade] || 0;
+      const ch = Number(r.creditHours) || 0;
+      totalQualityPoints += (gp * ch);
+      totalCreditHours += ch;
+      totalMarksObtained += Number(r.marksObtained) || 0;
+      totalMaxMarks += Number(r.totalMarks) || 0;
+    });
+
+    return {
+      cgpa: totalCreditHours > 0 ? (totalQualityPoints / totalCreditHours).toFixed(2) : "0.00",
+      totalCredits: totalCreditHours,
+      aggregate: totalMaxMarks > 0 ? ((totalMarksObtained / totalMaxMarks) * 100).toFixed(1) : "0",
+      totalSubjects: results.length
+    };
+  }, [results]);
+
+  // Calculations for the currently selected tab (SGPA)
+  const currentSemResults = results.filter(r => r.semester === activeSem);
+  
+  const currentSgpa = useMemo(() => {
+    let semQP = 0;
+    let semCH = 0;
+    currentSemResults.forEach(r => {
+      semQP += (GRADE_POINTS[r.grade] || 0) * (Number(r.creditHours) || 0);
+      semCH += (Number(r.creditHours) || 0);
+    });
+    return semCH > 0 ? (semQP / semCH).toFixed(2) : "0.00";
+  }, [currentSemResults]);
+
+  if (loading) return <div style={{ padding: 40, textAlign: "center" }}>Syncing Academic Records...</div>;
 
   return (
-    <div>
-      <div className="page-header">
-        <div>
-          <h2>Results & CGPA</h2>
-          <div className="page-header-sub">Semester-wise results and cumulative grade point average</div>
+    <div style={{ background: c.bg, minHeight: "100vh", padding: "20px" }}>
+      <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+        
+        {/* Top Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 25 }}>
+          <div>
+            <h2 style={{ margin: 0, fontWeight: 800 }}>Student Transcript</h2>
+            <p style={{ color: c.sub, margin: 0, fontSize: 13 }}>{userData?.name} • {userData?.rollNo}</p>
+          </div>
+          <button onClick={() => window.print()} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", background: "#fff", border: `1px solid ${c.border}`, borderRadius: 12, fontWeight: 700, cursor: "pointer" }}>
+            <Printer size={16} /> Print Transcript
+          </button>
         </div>
-        <button className="btn btn-outline btn-sm no-print" onClick={() => window.print()}>🖨️ Print Results</button>
-      </div>
 
-      {/* Print header */}
-      <div className="print-header" style={{ marginBottom:20, borderBottom:"2px solid #1a3a5c", paddingBottom:12 }}>
-        <h2 style={{ fontFamily:"'Playfair Display',serif", color:"#1a3a5c" }}>Academic Results</h2>
-        <p>Name: {userData?.name} | Roll No: {userData?.rollNo} | Program: {userData?.program}</p>
-      </div>
+        {/* Dashboard Cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 15, marginBottom: 25 }}>
+          <div style={{ background: "#1e293b", color: "#fff", padding: 20, borderRadius: 20 }}>
+            <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 700 }}>CUMULATIVE GPA (CGPA)</div>
+            <div style={{ fontSize: 32, fontWeight: 900, marginTop: 5 }}>{stats.cgpa}</div>
+          </div>
+          <div style={{ background: "#fff", padding: 20, borderRadius: 20, border: `1px solid ${c.border}` }}>
+            <div style={{ fontSize: 12, color: c.sub, fontWeight: 700 }}>TOTAL CREDITS</div>
+            <div style={{ fontSize: 32, fontWeight: 900, marginTop: 5, color: c.text }}>{stats.totalCredits}</div>
+          </div>
+          <div style={{ background: "#fff", padding: 20, borderRadius: 20, border: `1px solid ${c.border}` }}>
+            <div style={{ fontSize: 12, color: c.sub, fontWeight: 700 }}>AGGREGATE %</div>
+            <div style={{ fontSize: 32, fontWeight: 900, marginTop: 5, color: c.success }}>{stats.aggregate}%</div>
+          </div>
+        </div>
 
-      {/* CGPA Summary */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))", gap:18, marginBottom:28 }}>
-        <div className="card" style={{ padding:24, textAlign:"center" }}>
-          <div className="cgpa-ring" style={{ borderColor: cgpaColor, color: cgpaColor }}>{cgpa}</div>
-          <div style={{ fontSize:13, fontWeight:700, color:"var(--text-muted)", textTransform:"uppercase", letterSpacing:0.5 }}>CGPA</div>
-          <div style={{ marginTop:8 }}>
-            <span className="badge" style={{ background: classification.color + "20", color: classification.color, fontSize:12 }}>{classification.label}</span>
-          </div>
-        </div>
-        <div className="card" style={{ padding:24, textAlign:"center" }}>
-          <div style={{ fontSize:36, fontWeight:700, color:"var(--primary)", marginBottom:4 }}>{availableSems.length}</div>
-          <div style={{ fontSize:13, color:"var(--text-muted)" }}>Semesters Completed</div>
-          <div style={{ fontSize:12, color:"var(--text-muted)", marginTop:8 }}>of 8 total</div>
-        </div>
-        <div className="card" style={{ padding:24, textAlign:"center" }}>
-          <div style={{ fontSize:36, fontWeight:700, color:"var(--primary)", marginBottom:4 }}>{results.length}</div>
-          <div style={{ fontSize:13, color:"var(--text-muted)" }}>Total Courses</div>
-          <div style={{ fontSize:12, color:"var(--text-muted)", marginTop:8 }}>
-            {results.reduce((a,c) => a + (c.creditHours||0), 0)} Credit Hours
-          </div>
-        </div>
-        <div className="card" style={{ padding:24, textAlign:"center" }}>
-          <div style={{ fontSize:36, fontWeight:700, color:results.filter(r=>r.grade==="F").length>0?"#dc2626":"#16a34a", marginBottom:4 }}>
-            {results.filter(r => r.grade === "F").length}
-          </div>
-          <div style={{ fontSize:13, color:"var(--text-muted)" }}>Failed Courses</div>
-          <div style={{ fontSize:12, color:"var(--text-muted)", marginTop:8 }}>
-            {results.filter(r => r.grade !== "F" && r.grade).length} Passed
-          </div>
-        </div>
-      </div>
-
-      {/* SGPA Bar Chart */}
-      {availableSems.length > 0 && (
-        <div className="card" style={{ padding:24, marginBottom:24 }}>
-          <div className="card-header" style={{ padding:"0 0 16px", border:"none", marginBottom:16 }}>
-            <h3>SGPA Progress</h3>
-          </div>
-          <div style={{ display:"flex", alignItems:"flex-end", gap:8, height:120 }}>
+        {/* Transcript Section */}
+        <div style={{ background: "#fff", borderRadius: 24, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: "0 10px 30px rgba(0,0,0,0.03)" }}>
+          
+          {/* Tabs */}
+          <div style={{ display: "flex", gap: 8, padding: 15, background: "#f8fafc", overflowX: "auto", borderBottom: `1px solid ${c.border}` }}>
             {SEMESTERS.map(sem => {
-              const courses = semMap[sem];
-              if (!courses) return (
-                <div key={sem} style={{ flex:1, textAlign:"center" }}>
-                  <div style={{ height:100, background:"#f1f5f9", borderRadius:"6px 6px 0 0", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                    <span style={{ fontSize:10, color:"var(--text-muted)", writingMode:"vertical-lr" }}>—</span>
-                  </div>
-                  <div style={{ fontSize:10, color:"var(--text-muted)", marginTop:4 }}>{sem.replace(" Semester","")}</div>
-                </div>
-              );
-              const sgpaVal = parseFloat(calcSGPA(courses));
-              const height = Math.round((sgpaVal / 4.0) * 100);
-              const barColor = sgpaVal >= 3.0 ? "#16a34a" : sgpaVal >= 2.0 ? "#d97706" : "#dc2626";
-              return (
-                <div key={sem} style={{ flex:1, textAlign:"center" }}>
-                  <div style={{ fontSize:11, fontWeight:700, color:barColor, marginBottom:4 }}>{sgpaVal.toFixed(2)}</div>
-                  <div style={{ height:100, display:"flex", alignItems:"flex-end" }}>
-                    <div style={{ width:"100%", height:`${height}%`, background:barColor, borderRadius:"4px 4px 0 0", transition:"height 0.4s", minHeight:4 }} />
-                  </div>
-                  <div style={{ fontSize:10, color:"var(--text-muted)", marginTop:4 }}>{sem.replace(" Semester","")}</div>
-                </div>
-              );
+                const count = results.filter(r => r.semester === sem).length;
+                return (
+                    <button key={sem} onClick={() => setActiveSem(sem)}
+                      style={{
+                        padding: "8px 16px", borderRadius: 12, border: "none", cursor: "pointer", fontSize: 12, whiteSpace: "nowrap",
+                        background: activeSem === sem ? c.primary : "transparent",
+                        color: activeSem === sem ? "#fff" : count > 0 ? c.text : "#cbd5e1",
+                        fontWeight: 700, transition: "0.2s"
+                      }}>
+                      {sem.split(" ")[0]} {sem.split(" ")[1]} {count > 0 ? `(${count})` : ""}
+                    </button>
+                )
             })}
           </div>
-        </div>
-      )}
 
-      {/* Semester Results */}
-      <div className="card">
-        <div className="card-header">
-          <h3>Semester Results</h3>
-          {sgpa && <span className="badge badge-primary">SGPA: {sgpa}</span>}
-        </div>
-        <div className="card-body" style={{ paddingTop:0 }}>
-          <div className="tabs" style={{ marginTop:16 }}>
-            {SEMESTERS.map(sem => (
-              <button key={sem} className={`tab-btn ${activeSem === sem ? "active" : ""}`}
-                onClick={() => setActiveSem(sem)} disabled={!semMap[sem]}>
-                {sem.replace(" Semester", "")}
-              </button>
-            ))}
+          {/* Current Semester Info */}
+          <div style={{ padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fcfdfe" }}>
+             <h3 style={{ margin: 0, fontSize: 16 }}>{activeSem} Breakdown</h3>
+             <div style={{ background: "#eef2ff", color: c.primary, padding: "6px 14px", borderRadius: 10, fontWeight: 800, fontSize: 14 }}>
+               Semester GPA: {currentSgpa}
+             </div>
           </div>
 
-          {loading ? (
-            <div className="empty-state"><p>Loading results...</p></div>
-          ) : semCourses.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">📊</div>
-              <p>No results available for {activeSem}.</p>
-              <p style={{ fontSize:12, marginTop:8 }}>Results will appear here once the admin enters them.</p>
-            </div>
-          ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Course ID</th><th>Course Title</th><th>Credit Hours</th>
-                    <th>Marks Obtained</th><th>Total Marks</th><th>Grade</th><th>Grade Points</th><th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {semCourses.map(r => (
-                    <tr key={r.id}>
-                      <td><span className="badge badge-primary">{r.courseId}</span></td>
-                      <td style={{ fontWeight:500 }}>{r.subjectTitle}</td>
-                      <td style={{ textAlign:"center" }}>{r.creditHours}</td>
-                      <td style={{ textAlign:"center" }}>{r.marksObtained ?? "—"}</td>
-                      <td style={{ textAlign:"center" }}>{r.totalMarks ?? "—"}</td>
-                      <td>
-                        <div className="grade-chip" style={{ background: getGradeColor(r.grade) + "20", color: getGradeColor(r.grade) }}>
-                          {r.grade || "—"}
+          {/* Detailed Table */}
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead style={{ background: "#f9fafb" }}>
+                <tr>
+                  <th style={{ padding: 16, textAlign: "left", fontSize: 11, color: c.sub }}>COURSE DETAILS</th>
+                  <th style={{ padding: 16, textAlign: "center", fontSize: 11, color: c.sub }}>CR. HRS</th>
+                  <th style={{ padding: 16, textAlign: "center", fontSize: 11, color: c.sub }}>MARKS</th>
+                  <th style={{ padding: 16, textAlign: "center", fontSize: 11, color: c.sub }}>GRADE</th>
+                  <th style={{ padding: 16, textAlign: "center", fontSize: 11, color: c.sub }}>STATUS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentSemResults.length > 0 ? currentSemResults.map(r => (
+                  <tr key={r.id} style={{ borderBottom: `1px solid #f1f5f9` }}>
+                    <td style={{ padding: 16 }}>
+                      <div style={{ fontWeight: 700, color: c.text }}>{r.subjectTitle}</div>
+                      <div style={{ fontSize: 11, color: c.sub, marginTop: 2 }}>{r.courseId}</div>
+                    </td>
+                    <td style={{ padding: 16, textAlign: "center", fontWeight: 700 }}>{r.creditHours}</td>
+                    <td style={{ padding: 16, textAlign: "center" }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: c.primary, background: "#eef2ff", padding: "4px 10px", borderRadius: 6 }}>
+                        {r.marksObtained} / {r.totalMarks}
+                      </span>
+                    </td>
+                    <td style={{ padding: 16, textAlign: "center" }}>
+                      <div style={{ width: 36, height: 36, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 10, background: r.grade === "F" ? "#fef2f2" : "#f0fdf4", color: r.grade === "F" ? c.danger : c.success, fontWeight: 800 }}>
+                        {r.grade}
+                      </div>
+                    </td>
+                    <td style={{ padding: 16, textAlign: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: r.grade === "F" ? c.danger : c.success, fontWeight: 700, fontSize: 12 }}>
+                           {r.grade === "F" ? "Failed" : <> <CheckCircle2 size={14} /> Passed </>}
                         </div>
-                      </td>
-                      <td style={{ textAlign:"center", fontWeight:600 }}>{GRADE_POINTS[r.grade] ?? "—"}</td>
-                      <td>
-                        <span className={`badge ${r.grade === "F" ? "badge-danger" : r.grade ? "badge-success" : "badge-gray"}`}>
-                          {r.grade === "F" ? "Fail" : r.grade ? "Pass" : "Pending"}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr style={{ background:"#f8fafc", fontWeight:600 }}>
-                    <td colSpan={2} style={{ padding:"12px 16px", fontSize:13 }}>Semester Total</td>
-                    <td style={{ padding:"12px 16px", fontSize:13, textAlign:"center" }}>{semCourses.reduce((a,c) => a+(c.creditHours||0),0)}</td>
-                    <td colSpan={2} />
-                    <td colSpan={2} style={{ padding:"12px 16px", fontSize:13 }}>SGPA: <strong>{sgpa}</strong></td>
-                    <td />
+                    </td>
                   </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
+                )) : (
+                  <tr>
+                    <td colSpan={5} style={{ padding: 60, textAlign: "center", color: c.sub }}>
+                      No academic records found for this semester.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

@@ -1,149 +1,134 @@
-import React, { useEffect, useState } from "react";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import React, { useEffect, useState, useMemo } from "react";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "../../firebase/config";
 import { useAuth } from "../../context/AuthContext";
+import { Calendar, User, BookOpen, UserCheck } from "lucide-react";
 
-const SEMESTERS = ["1st Semester","2nd Semester","3rd Semester","4th Semester","5th Semester","6th Semester","7th Semester","8th Semester"];
+const STATUS_CONFIG = {
+  P: { label: "Present", color: "#16a34a", bg: "#dcfce7" },
+  A: { label: "Absent", color: "#dc2626", bg: "#fee2e2" },
+  L: { label: "Leave", color: "#d97706", bg: "#fef3c7" },
+};
 
 export default function StudentAttendance() {
   const { userData } = useAuth();
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeSem, setActiveSem] = useState("1st Semester");
 
   useEffect(() => {
+    // If userData is still null, keep loading
     if (!userData?.rollNo) return;
-    async function load() {
-      try {
-        const snap = await getDocs(query(collection(db, "attendance"), where("rollNo", "==", userData.rollNo)));
-        setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        const all = snap.docs.map(d => d.data());
-        const firstSem = SEMESTERS.find(s => all.some(a => a.semester === s));
-        if (firstSem) setActiveSem(firstSem);
-      } catch(e) { console.error(e); }
+
+    console.log("Fetching attendance for Roll No:", userData.rollNo);
+
+    const q = query(
+      collection(db, "dailyAttendance"),
+      where("rollNo", "==", userData.rollNo)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      
+      // Manually sort by date since we removed orderBy for index safety
+      const sortedData = data.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      setRecords(sortedData);
       setLoading(false);
-    }
-    load();
+    }, (err) => {
+      console.error("Firestore Error:", err);
+      setLoading(false);
+    });
+
+    return () => unsub();
   }, [userData]);
 
-  const semRecords = records.filter(r => r.semester === activeSem);
-  const availableSems = SEMESTERS.filter(s => records.some(r => r.semester === s));
-  const totalPresent = semRecords.reduce((a, r) => a + (r.present || 0), 0);
-  const totalLectures = semRecords.reduce((a, r) => a + (r.lectures || 0), 0);
-  const overallPct = totalLectures > 0 ? Math.round((totalPresent / totalLectures) * 100) : 0;
+  const stats = useMemo(() => {
+    const total = records.length;
+    const present = records.filter(r => r.status === "P").length;
+    const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
+    return { total, present, percentage };
+  }, [records]);
 
-  function getPctColor(p) { return p >= 75 ? "#16a34a" : p >= 60 ? "#d97706" : "#dc2626"; }
-  function getStatusBadge(p) {
-    if (p >= 75) return <span className="badge badge-success">Regular</span>;
-    if (p >= 60) return <span className="badge badge-warning">Warning</span>;
-    return <span className="badge badge-danger">Short</span>;
-  }
+  if (loading) return (
+    <div style={{ padding: 100, textAlign: "center", color: "#6366f1", fontWeight: 600 }}>
+      <div style={{ width: 40, height: 40, border: "4px solid #f3f3f3", borderTop: "4px solid #6366f1", borderRadius: "50%", animation: "spin 1s linear infinite", margin: "0 auto 20px" }}></div>
+      Syncing Attendance Data...
+      <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
 
   return (
-    <div>
-      <div className="page-header">
-        <div>
-          <h2>Attendance Record</h2>
-          <div className="page-header-sub">Subject-wise attendance for all semesters</div>
+    <div style={{ padding: "20px", maxWidth: "1100px", margin: "0 auto" }}>
+      
+      <div style={{ marginBottom: 25 }}>
+        <h2 style={{ margin: 0, fontWeight: 800 }}>Attendance Dashboard</h2>
+        <p style={{ color: "#64748b" }}>Logged in as: {userData.name} ({userData.rollNo})</p>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20, marginBottom: 30 }}>
+        <div style={{ background: "linear-gradient(135deg, #6366f1, #4338ca)", padding: 24, borderRadius: 24, color: "#fff" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.8 }}>OVERALL ATTENDANCE</div>
+          <div style={{ fontSize: 36, fontWeight: 900, marginTop: 8 }}>{stats.percentage}%</div>
         </div>
-        <button className="btn btn-outline btn-sm no-print" onClick={() => window.print()}>🖨️ Print</button>
-      </div>
 
-      <div className="print-header" style={{ marginBottom:16, borderBottom:"2px solid #1a3a5c", paddingBottom:10 }}>
-        <h2 style={{ fontFamily:"'Playfair Display',serif", color:"#1a3a5c" }}>Attendance Report</h2>
-        <p>Name: {userData?.name} | Roll No: {userData?.rollNo} | Program: {userData?.program} | Semester: {activeSem}</p>
-      </div>
-
-      {/* Overall stats */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(180px,1fr))", gap:16, marginBottom:24 }}>
-        <div className="stat-card">
-          <div className="stat-icon" style={{ background:"#dbeafe" }}><span style={{ fontSize:20 }}>📊</span></div>
+        <div style={{ background: "#fff", padding: 24, borderRadius: 24, border: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div className="stat-value" style={{ color: getPctColor(overallPct) }}>{overallPct}%</div>
-            <div className="stat-label">Overall ({activeSem})</div>
+            <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>TOTAL CLASSES</div>
+            <div style={{ fontSize: 28, fontWeight: 800, marginTop: 4 }}>{stats.total}</div>
           </div>
+          <BookOpen color="#6366f1" />
         </div>
-        <div className="stat-card">
-          <div className="stat-icon" style={{ background:"#dcfce7" }}><span style={{ fontSize:20 }}>✅</span></div>
-          <div><div className="stat-value">{totalPresent}</div><div className="stat-label">Total Present</div></div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon" style={{ background:"#fee2e2" }}><span style={{ fontSize:20 }}>❌</span></div>
-          <div><div className="stat-value">{semRecords.reduce((a,r)=>a+(r.absent||0),0)}</div><div className="stat-label">Total Absent</div></div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon" style={{ background:"#fef3c7" }}><span style={{ fontSize:20 }}>📅</span></div>
-          <div><div className="stat-value">{totalLectures}</div><div className="stat-label">Total Lectures</div></div>
+
+        <div style={{ background: "#fff", padding: 24, borderRadius: 24, border: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>PRESENT DAYS</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: "#16a34a", marginTop: 4 }}>{stats.present}</div>
+          </div>
+          <UserCheck color="#16a34a" />
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-body">
-          <div className="tabs">
-            {SEMESTERS.map(sem => (
-              <button key={sem} className={`tab-btn ${activeSem === sem ? "active" : ""}`}
-                onClick={() => setActiveSem(sem)} disabled={!availableSems.includes(sem)}>
-                {sem.replace(" Semester", "")}
-              </button>
-            ))}
+      <div style={{ background: "#fff", borderRadius: 24, border: "1px solid #e2e8f0", overflow: "hidden" }}>
+        {records.length > 0 ? (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ textAlign: "left", background: "#f8fafc" }}>
+                <th style={{ padding: "16px 24px", fontSize: 11, color: "#94a3b8" }}>DATE & COURSE</th>
+                <th style={{ padding: "16px 24px", fontSize: 11, color: "#94a3b8" }}>INSTRUCTOR</th>
+                <th style={{ padding: "16px 24px", fontSize: 11, color: "#94a3b8", textAlign: "center" }}>STATUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {records.map((record) => (
+                <tr key={record.id} style={{ borderTop: "1px solid #f1f5f9" }}>
+                  <td style={{ padding: "20px 24px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
+                      <div style={{ background: "#f1f5f9", padding: "10px", borderRadius: 12 }}><Calendar size={18} color="#6366f1" /></div>
+                      <div>
+                        <div style={{ fontWeight: 700 }}>{record.courseTitle || "General Class"}</div>
+                        <div style={{ fontSize: 12, color: "#64748b" }}>{record.date}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ padding: "20px 24px" }}><User size={14} /> {record.teacher}</td>
+                  <td style={{ padding: "20px 24px", textAlign: "center" }}>
+                    <span style={{
+                      padding: "6px 16px", borderRadius: 10, fontSize: 11, fontWeight: 800,
+                      background: STATUS_CONFIG[record.status]?.bg,
+                      color: STATUS_CONFIG[record.status]?.color
+                    }}>
+                      {STATUS_CONFIG[record.status]?.label}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div style={{ padding: 60, textAlign: "center", color: "#94a3b8" }}>
+            No attendance records found.
           </div>
-
-          {loading ? (
-            <div className="empty-state"><p>Loading attendance...</p></div>
-          ) : semRecords.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">✅</div>
-              <p>No attendance records for {activeSem}.</p>
-            </div>
-          ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>#</th><th>Subject</th><th>Teacher</th>
-                    <th>Total</th><th>Present</th><th>Leave</th><th>Absent</th>
-                    <th>Percentage</th><th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {semRecords.map((r, i) => {
-                    const pct = r.lectures > 0 ? Math.round((r.present / r.lectures) * 100) : 0;
-                    const color = getPctColor(pct);
-                    return (
-                      <tr key={r.id}>
-                        <td>{i+1}</td>
-                        <td>
-                          <div style={{ fontWeight:600 }}>{r.subjectTitle}</div>
-                          <div style={{ fontSize:11, color:"var(--text-muted)" }}>{r.courseId}</div>
-                        </td>
-                        <td style={{ fontSize:12 }}>{r.teacher}</td>
-                        <td style={{ textAlign:"center" }}>{r.lectures}</td>
-                        <td style={{ textAlign:"center", color:"var(--success)", fontWeight:600 }}>{r.present}</td>
-                        <td style={{ textAlign:"center", color:"var(--warning)" }}>{r.leave}</td>
-                        <td style={{ textAlign:"center", color:"var(--danger)" }}>{r.absent}</td>
-                        <td style={{ minWidth:160 }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                            <div className="progress-bar" style={{ flex:1 }}>
-                              <div className="progress-fill" style={{ width:`${pct}%`, background:color }} />
-                            </div>
-                            <span style={{ fontSize:12, fontWeight:700, color, minWidth:36 }}>{pct}%</span>
-                          </div>
-                        </td>
-                        <td>{getStatusBadge(pct)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {!loading && semRecords.length > 0 && overallPct < 75 && (
-            <div className="alert alert-warning" style={{ marginTop:16 }}>
-              ⚠️ Your overall attendance is {overallPct}%. Minimum required attendance is 75%. Please contact your department.
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

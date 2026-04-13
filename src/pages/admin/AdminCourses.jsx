@@ -1,133 +1,150 @@
-import React, { useEffect, useState } from "react";
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import React, { useEffect, useState, useMemo } from "react";
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import { db } from "../../firebase/config";
+import { toast, Toaster } from "react-hot-toast";
+import { ArrowLeft, BookOpen, Plus, Edit3, Trash2, X } from "lucide-react";
 
-const SEMESTERS = ["1st Semester","2nd Semester","3rd Semester","4th Semester","5th Semester","6th Semester","7th Semester","8th Semester"];
-const EMPTY = { courseId:"", title:"", teacher:"", program:"", semester:"1st Semester", creditHours:"3", type:"Theory" };
+const DEPARTMENTS = [
+  { id: "cs", name: "Computer Science", icon: "💻", color: "#185FA5" },
+  { id: "ir", name: "International Relations", icon: "🌍", color: "#0F6E56" },
+  { id: "edu", name: "Education", icon: "📚", color: "#854F0B" },
+  { id: "bus", name: "Business Administration", icon: "📊", color: "#993C1D" },
+  { id: "eng", name: "English", icon: "✍️", color: "#534AB7" },
+  { id: "math", name: "Mathematics", icon: "🔢", color: "#3B6D11" },
+];
+
+const SEMESTERS = ["1st Semester", "2nd Semester", "3rd Semester", "4th Semester", "5th Semester", "6th Semester", "7th Semester", "8th Semester"];
+const EMPTY = { courseId: "", title: "", teacher: "", creditHours: "3", type: "Theory" };
 
 export default function AdminCourses() {
-  const [courses, setCourses] = useState([]);
+  const [view, setView] = useState("depts"); // "depts" | "courses"
+  const [activeDept, setActiveDept] = useState(null);
+  const [activeSem, setActiveSem] = useState("1st Semester");
+  
+  const [allCourses, setAllCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState(null);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
-  const [search, setSearch] = useState("");
-  const [filterSem, setFilterSem] = useState("All");
 
-  useEffect(() => { load(); }, []);
-  async function load() {
-    setLoading(true);
-    const snap = await getDocs(collection(db,"courses"));
-    setCourses(snap.docs.map(d=>({id:d.id,...d.data()})));
-    setLoading(false);
-  }
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "courses"), (snap) => {
+      setAllCourses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
 
-  function openAdd() { setForm(EMPTY); setEditing(null); setShowModal(true); }
-  function openEdit(c) { setForm(c); setEditing(c.id); setShowModal(true); }
+  const filteredCourses = useMemo(() => {
+    return allCourses.filter(c => c.program === activeDept?.name && c.semester === activeSem);
+  }, [allCourses, activeDept, activeSem]);
 
-  async function handleSave() {
-    if (!form.title || !form.program) { alert("Title and Program are required."); return; }
+  const handleSave = async () => {
+    if (!form.title || !form.courseId) { toast.error("Title and ID are required"); return; }
     setSaving(true);
     try {
-      const { id, ...data } = form;
-      if (editing) await updateDoc(doc(db,"courses",editing), data);
-      else await addDoc(collection(db,"courses"), data);
-      setShowModal(false); load();
-    } catch(e) { alert("Error: "+e.message); }
+      const data = { ...form, program: activeDept.name, semester: activeSem };
+      if (editingId) await updateDoc(doc(db, "courses", editingId), data);
+      else await addDoc(collection(db, "courses"), data);
+      setShowModal(false);
+      setForm(EMPTY);
+      toast.success("Course saved!");
+    } catch (e) { toast.error(e.message); }
     setSaving(false);
-  }
+  };
 
-  async function handleDelete(id) {
-    if (!window.confirm("Delete this course?")) return;
-    await deleteDoc(doc(db,"courses",id)); load();
+  if (view === "depts") {
+    return (
+      <div style={{ padding: 32, background: "#f4f6fb", minHeight: "100vh" }}>
+        <h2 style={{ fontWeight: 800, marginBottom: 24 }}>Course Management</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
+          {DEPARTMENTS.map(dept => (
+            <div key={dept.id} onClick={() => { setActiveDept(dept); setView("courses"); }}
+                 style={{ background: "#fff", padding: 24, borderRadius: 20, cursor: "pointer", border: "1px solid #e2e8f0", transition: "0.2s" }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>{dept.icon}</div>
+              <h3 style={{ margin: 0 }}>{dept.name}</h3>
+              <p style={{ color: "#64748b", fontSize: 13, marginTop: 8 }}>Manage syllabus and teachers</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
-
-  const filtered = courses.filter(c => {
-    const matchSearch = c.title?.toLowerCase().includes(search.toLowerCase()) || c.courseId?.toLowerCase().includes(search.toLowerCase()) || c.program?.toLowerCase().includes(search.toLowerCase());
-    const matchSem = filterSem === "All" || c.semester === filterSem;
-    return matchSearch && matchSem;
-  });
 
   return (
-    <div>
-      <div className="page-header">
-        <div><h2>Course Management</h2><div className="page-header-sub">Manage courses for all programs and semesters</div></div>
-        <button className="btn btn-primary" onClick={openAdd}>+ Add Course</button>
-      </div>
+    <div style={{ padding: 32, background: "#f4f6fb", minHeight: "100vh" }}>
+      <Toaster />
+      <button onClick={() => setView("depts")} style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", color: "#6366f1", cursor: "pointer", fontWeight: 700, marginBottom: 20 }}>
+        <ArrowLeft size={18} /> Back to Departments
+      </button>
 
-      <div style={{ display:"flex", gap:12, marginBottom:18, flexWrap:"wrap" }}>
-        <input className="form-control" style={{ maxWidth:360 }} placeholder="🔍 Search courses..."
-          value={search} onChange={e=>setSearch(e.target.value)} />
-        <select className="form-control" style={{ width:180 }} value={filterSem} onChange={e=>setFilterSem(e.target.value)}>
-          <option value="All">All Semesters</option>
-          {SEMESTERS.map(s=><option key={s}>{s}</option>)}
-        </select>
-      </div>
-
-      <div className="card" style={{ padding:0 }}>
-        <div className="table-wrap">
-          {loading ? <div className="empty-state"><p>Loading...</p></div> : (
-            <table>
-              <thead>
-                <tr><th>#</th><th>Course ID</th><th>Title</th><th>Program</th><th>Semester</th><th>Teacher</th><th>CH</th><th>Type</th><th>Actions</th></tr>
-              </thead>
-              <tbody>
-                {filtered.map((c,i)=>(
-                  <tr key={c.id}>
-                    <td>{i+1}</td>
-                    <td><span className="badge badge-primary">{c.courseId}</span></td>
-                    <td style={{ fontWeight:500 }}>{c.title}</td>
-                    <td style={{ fontSize:12,color:"var(--text-muted)",maxWidth:200 }}>{c.program}</td>
-                    <td><span className="badge badge-gray">{c.semester}</span></td>
-                    <td style={{ fontSize:12 }}>{c.teacher}</td>
-                    <td style={{ textAlign:"center" }}>{c.creditHours}</td>
-                    <td><span className={`badge ${c.type==="Theory"?"badge-primary":c.type==="Practical"?"badge-success":"badge-warning"}`}>{c.type}</span></td>
-                    <td>
-                      <div style={{ display:"flex",gap:8 }}>
-                        <button className="btn btn-outline btn-sm" onClick={()=>openEdit(c)}>✏️</button>
-                        <button className="btn btn-danger btn-sm" onClick={()=>handleDelete(c.id)}>🗑️</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {filtered.length===0 && <tr><td colSpan={9}><div className="empty-state"><p>No courses found</p></div></td></tr>}
-              </tbody>
-            </table>
-          )}
+      <div style={{ background: "#fff", borderRadius: 24, padding: 24, border: "1px solid #e2e8f0" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <div>
+            <h2 style={{ margin: 0 }}>{activeDept.icon} {activeDept.name}</h2>
+            <select value={activeSem} onChange={e => setActiveSem(e.target.value)} style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid #e2e8f0", marginTop: 10 }}>
+              {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <button onClick={() => { setForm(EMPTY); setEditingId(null); setShowModal(true); }}
+            style={{ background: "#6366f1", color: "#fff", border: "none", padding: "12px 24px", borderRadius: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+            <Plus size={18} /> Add New Course
+          </button>
         </div>
+
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ textAlign: "left", background: "#f8fafc", color: "#64748b", fontSize: 12 }}>
+              <th style={{ padding: 16 }}>COURSE ID & TITLE</th>
+              <th style={{ padding: 16 }}>TEACHER</th>
+              <th style={{ padding: 16 }}>CH</th>
+              <th style={{ padding: 16 }}>TYPE</th>
+              <th style={{ padding: 16, textAlign: "right" }}>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredCourses.map(c => (
+              <tr key={c.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                <td style={{ padding: 16 }}>
+                  <div style={{ fontWeight: 700 }}>{c.title}</div>
+                  <div style={{ fontSize: 11, color: "#94a3b8" }}>{c.courseId}</div>
+                </td>
+                <td style={{ padding: 16, fontSize: 14 }}>{c.teacher}</td>
+                <td style={{ padding: 16 }}>{c.creditHours}</td>
+                <td style={{ padding: 16 }}><span style={{ padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "#eef2ff", color: "#6366f1" }}>{c.type}</span></td>
+                <td style={{ padding: 16, textAlign: "right" }}>
+                  <button onClick={() => { setForm(c); setEditingId(c.id); setShowModal(true); }} style={{ marginRight: 10, border: "none", background: "none", cursor: "pointer" }}><Edit3 size={16} color="#64748b"/></button>
+                  <button onClick={() => deleteDoc(doc(db, "courses", c.id))} style={{ border: "none", background: "none", cursor: "pointer" }}><Trash2 size={16} color="#ef4444"/></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {showModal && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h3>{editing?"Edit Course":"Add New Course"}</h3>
-              <button className="btn btn-ghost btn-icon" onClick={()=>setShowModal(false)}>✕</button>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+          <div style={{ background: "#fff", width: "100%", maxWidth: "450px", borderRadius: 24, padding: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
+              <h3 style={{ margin: 0 }}>{editingId ? "Edit Course" : "Add Course"}</h3>
+              <X onClick={() => setShowModal(false)} style={{ cursor: "pointer" }} />
             </div>
-            <div className="form-row">
-              <div className="form-group"><label>Course ID</label><input className="form-control" placeholder="e.g. IRS-728" value={form.courseId} onChange={e=>setForm({...form,courseId:e.target.value})} /></div>
-              <div className="form-group"><label>Credit Hours</label><input className="form-control" type="number" min="1" max="6" value={form.creditHours} onChange={e=>setForm({...form,creditHours:e.target.value})} /></div>
-              <div className="form-group full-width"><label>Course Title *</label><input className="form-control" placeholder="Full course title" value={form.title} onChange={e=>setForm({...form,title:e.target.value})} /></div>
-              <div className="form-group full-width"><label>Program *</label><input className="form-control" placeholder="Must exactly match student's program title" value={form.program} onChange={e=>setForm({...form,program:e.target.value})} /></div>
-              <div className="form-group"><label>Teacher</label><input className="form-control" placeholder="Teacher name" value={form.teacher} onChange={e=>setForm({...form,teacher:e.target.value})} /></div>
-              <div className="form-group">
-                <label>Semester</label>
-                <select className="form-control" value={form.semester} onChange={e=>setForm({...form,semester:e.target.value})}>
-                  {SEMESTERS.map(s=><option key={s}>{s}</option>)}
+            <div style={{ display: "grid", gap: 15 }}>
+              <input style={{ padding: 12, borderRadius: 12, border: "1px solid #e2e8f0" }} placeholder="Course ID (e.g. CS-101)" value={form.courseId} onChange={e => setForm({...form, courseId: e.target.value})} />
+              <input style={{ padding: 12, borderRadius: 12, border: "1px solid #e2e8f0" }} placeholder="Course Title" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
+              <input style={{ padding: 12, borderRadius: 12, border: "1px solid #e2e8f0" }} placeholder="Teacher Name" value={form.teacher} onChange={e => setForm({...form, teacher: e.target.value})} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <input type="number" style={{ padding: 12, borderRadius: 12, border: "1px solid #e2e8f0" }} placeholder="Credit Hours" value={form.creditHours} onChange={e => setForm({...form, creditHours: e.target.value})} />
+                <select style={{ padding: 12, borderRadius: 12, border: "1px solid #e2e8f0" }} value={form.type} onChange={e => setForm({...form, type: e.target.value})}>
+                  <option>Theory</option>
+                  <option>Practical</option>
+                  <option>Lab</option>
                 </select>
               </div>
-              <div className="form-group">
-                <label>Type</label>
-                <select className="form-control" value={form.type} onChange={e=>setForm({...form,type:e.target.value})}>
-                  <option>Theory</option><option>Practical</option><option>Seminar</option><option>Lab</option>
-                </select>
-              </div>
-            </div>
-            <div className="alert alert-info" style={{ fontSize:12 }}>⚠️ Program must exactly match the student's active program title for courses to appear in their portal.</div>
-            <div style={{ display:"flex",gap:10,justifyContent:"flex-end",marginTop:16 }}>
-              <button className="btn btn-outline" onClick={()=>setShowModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving?"Saving...":"💾 Save Course"}</button>
+              <button onClick={handleSave} style={{ background: "#6366f1", color: "#fff", border: "none", padding: 14, borderRadius: 12, fontWeight: 800, cursor: "pointer", marginTop: 10 }}>
+                {saving ? "Saving..." : "Save Course"}
+              </button>
             </div>
           </div>
         </div>
