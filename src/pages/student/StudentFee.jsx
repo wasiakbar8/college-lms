@@ -1,201 +1,167 @@
 import React, { useEffect, useState } from "react";
-import { collection, query, where, getDocs, updateDoc, doc, arrayUnion } from "firebase/firestore";
+import { collection, query, where, onSnapshot, updateDoc, doc, arrayUnion } from "firebase/firestore";
 import { db } from "../../firebase/config";
 import { useAuth } from "../../context/AuthContext";
-
-// --- EMBEDDED BUSINESS LOGIC ---
-const calculateLateFee = (dueDateString, lateFeePerDay = 100) => {
-  if (!dueDateString) return 0;
-  const today = new Date(); const dueDate = new Date(dueDateString);
-  today.setHours(0, 0, 0, 0); dueDate.setHours(0, 0, 0, 0);
-  if (today > dueDate) return Math.ceil((today - dueDate) / (1000 * 60 * 60 * 24)) * lateFeePerDay;
-  return 0;
-};
-
-const processFeeRecord = (rawFee) => {
-  const baseAmount = (rawFee.feeBreakdown && rawFee.feeBreakdown.length > 0)
-    ? rawFee.feeBreakdown.reduce((sum, item) => sum + Number(item.amount), 0)
-    : Number(rawFee.netAmt || 0);
-    
-  const lateFee = calculateLateFee(rawFee.dueDate, rawFee.lateFeePerDay || 100);
-  const totalAmount = baseAmount + lateFee;
-  
-  const totalPaid = (rawFee.payments && rawFee.payments.length > 0)
-    ? rawFee.payments.reduce((sum, p) => sum + Number(p.amount), 0)
-    : Number(rawFee.paidAmt || 0);
-    
-  const remainingAmount = Math.max(0, totalAmount - totalPaid);
-  
-  let status = "Partial";
-  if (totalPaid === 0) status = "Unpaid";
-  else if (totalPaid >= totalAmount) status = "Paid";
-
-  return { 
-    ...rawFee, totalAmount, totalPaid, remainingAmount, status, lateFee, 
-    payments: rawFee.payments || [], 
-    feeBreakdown: rawFee.feeBreakdown || [],
-    pendingPayments: rawFee.pendingPayments || [] // NEW: Track unapproved proofs
-  };
-};
-// -------------------------------
+import { toast, Toaster } from "react-hot-toast";
+import { FileText, Printer, Send, X, Landmark, Calendar, Clock, CheckCircle } from "lucide-react";
 
 export default function StudentFee() {
   const { userData } = useAuth();
-  const [fees, setFees] = useState([]);
+  const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState(null);
   
-  // NEW: Proof Upload Modal State
-  const [proofModal, setProofModal] = useState({ open: false, voucherId: null, amount: "", date: new Date().toISOString().split('T')[0], method: "Bank Transfer", transactionId: "" });
-  const [submitting, setSubmitting] = useState(false);
+  // Modals
+  const [showVoucher, setShowVoucher] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [selectedVoucher, setSelectedVoucher] = useState(null);
+  
+  // Form for submission
+  const [proof, setProof] = useState({ transactionId: "", method: "Bank Transfer", amount: "" });
 
-  useEffect(() => { load(); }, [userData]);
-
-  async function load() {
+  useEffect(() => {
     if (!userData?.rollNo) return;
+    const q = query(collection(db, "fees"), where("rollNo", "==", userData.rollNo));
+    return onSnapshot(q, (snap) => {
+      setVouchers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    });
+  }, [userData]);
+
+  const handleSubmitProof = async () => {
+    if (!proof.transactionId || !proof.amount) return toast.error("Fill all details");
     try {
-      const snap = await getDocs(query(collection(db, "fees"), where("rollNo", "==", userData.rollNo)));
-      const data = snap.docs.map(d => processFeeRecord({ id: d.id, ...d.data() }));
-      data.sort((a, b) => (a.semester || "").localeCompare(b.semester || ""));
-      setFees(data);
-    } catch(e) { console.error(e); }
-    setLoading(false);
-  }
-
-  const totalPaid = fees.reduce((a, f) => a + f.totalPaid, 0);
-  const totalDue = fees.reduce((a, f) => a + f.remainingAmount, 0);
-
-  function printVoucher(fee) {
-    setSelected(fee);
-    setTimeout(() => { window.print(); }, 300);
-  }
-
-  // NEW: Handle Student Submitting Proof
-  async function handleSubmitProof(e) {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      const pendingObj = {
-        amount: Number(proofModal.amount),
-        date: proofModal.date,
-        method: proofModal.method,
-        transactionId: proofModal.transactionId,
-        submittedAt: new Date().toISOString()
-      };
-      
-      await updateDoc(doc(db, "fees", proofModal.voucherId), {
-        pendingPayments: arrayUnion(pendingObj)
+      await updateDoc(doc(db, "fees", selectedVoucher.id), {
+        pendingPayments: arrayUnion({
+          ...proof,
+          submittedAt: new Date().toISOString(),
+          status: "Pending"
+        })
       });
-      
-      setProofModal({ open: false, voucherId: null, amount: "", date: "", method: "Bank Transfer", transactionId: "" });
-      alert("Payment proof submitted for admin verification.");
-      load();
-    } catch (error) {
-      alert("Error submitting proof: " + error.message);
-    }
-    setSubmitting(false);
-  }
+      toast.success("Proof submitted! Waiting for Admin approval.");
+      setShowSubmitModal(false);
+      setProof({ transactionId: "", method: "Bank Transfer", amount: "" });
+    } catch (e) { toast.error("Submission failed"); }
+  };
+
+  if (loading) return <div style={{ padding: 100, textAlign: "center" }}>Fetching your ledger...</div>;
 
   return (
-    <div>
-      <div className="page-header no-print">
-        <div>
-          <h2>Fee & Vouchers</h2>
-          <div className="page-header-sub">View fee history and submit payment proofs</div>
-        </div>
+    <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
+      <Toaster />
+      <div style={{ background: "linear-gradient(135deg, #1e293b, #334155)", padding: 32, borderRadius: 24, color: "#fff", marginBottom: 30 }}>
+        <h2 style={{ margin: 0, fontWeight: 800 }}>Fee Portal</h2>
+        <p style={{ opacity: 0.8, marginTop: 5 }}>View vouchers and submit payment evidence</p>
       </div>
 
-      <div className="no-print" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(180px,1fr))", gap:16, marginBottom:24 }}>
-        {[
-          { label:"Total Paid", value:`Rs. ${totalPaid.toLocaleString()}`, icon:"✅", color:"#dcfce7", tc:"#16a34a" },
-          { label:"Total Due", value:totalDue > 0 ? `Rs. ${totalDue.toLocaleString()}` : "Clear", icon:totalDue > 0 ? "⚠️" : "✅", color: totalDue > 0 ? "#fee2e2" : "#dcfce7", tc: totalDue > 0 ? "#dc2626" : "#16a34a" },
-          { label:"Pending Vouchers", value:fees.filter(f=>f.status!=="Paid").length, icon:"🕐", color:"#fef3c7", tc:"#d97706" },
-        ].map(s => (
-          <div className="stat-card" key={s.label}>
-            <div className="stat-icon" style={{ background:s.color }}><span style={{ fontSize:18 }}>{s.icon}</span></div>
-            <div><div className="stat-value" style={{ fontSize:18, color:s.tc }}>{s.value}</div><div className="stat-label">{s.label}</div></div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 20 }}>
+        {vouchers.map(v => (
+          <div key={v.id} style={{ background: "#fff", padding: 24, borderRadius: 24, border: "1px solid #e2e8f0", position: "relative" }}>
+            <div style={{ position: "absolute", top: 20, right: 20 }}>
+               <span style={{ padding: "6px 12px", borderRadius: 8, fontSize: 10, fontWeight: 900, background: v.status === "Paid" ? "#dcfce7" : "#fee2e2", color: v.status === "Paid" ? "#16a34a" : "#dc2626" }}>
+                 {v.status.toUpperCase()}
+               </span>
+            </div>
+            
+            <div style={{ fontWeight: 800, color: "#1e293b", fontSize: 18, marginBottom: 5 }}>{v.semester} Fee</div>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 20 }}>Ref: {v.referenceId}</div>
+
+            <div style={{ fontSize: 32, fontWeight: 900, color: "#1e293b", marginBottom: 20 }}>Rs. {v.totalAmount.toLocaleString()}</div>
+
+            <div style={{ display: "grid", gap: 12, borderTop: "1px solid #f1f5f9", paddingTop: 20 }}>
+               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ color: "#64748b" }}>Due Date:</span>
+                  <span style={{ fontWeight: 700 }}>{v.dueDate}</span>
+               </div>
+               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ color: "#64748b" }}>Bank:</span>
+                  <span style={{ fontWeight: 700 }}>{v.bankName || "Any Branch"}</span>
+               </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 25 }}>
+               <button onClick={() => { setSelectedVoucher(v); setShowVoucher(true); }} style={{ flex: 1, padding: 12, borderRadius: 12, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontWeight: 700 }}>
+                  <Printer size={16} /> Print
+               </button>
+               {v.status !== "Paid" && (
+                 <button onClick={() => { setSelectedVoucher(v); setShowSubmitModal(true); }} style={{ flex: 1, padding: 12, borderRadius: 12, border: "none", background: "#6366f1", color: "#fff", cursor: "pointer", fontWeight: 700 }}>
+                   Submit Paid
+                 </button>
+               )}
+            </div>
+            
+            {v.pendingPayments?.length > 0 && (
+               <div style={{ marginTop: 15, padding: "10px", background: "#fffbeb", borderRadius: 12, fontSize: 11, color: "#b45309", textAlign: "center", fontWeight: 600 }}>
+                  ⏳ Payment verification in progress...
+               </div>
+            )}
           </div>
         ))}
       </div>
 
-      {loading ? ( <div className="empty-state"><p>Loading fee records...</p></div> ) : (
-        <div className="no-print" style={{ display:"grid", gap:16 }}>
-          {fees.map(fee => (
-            <div key={fee.id} className="voucher-card">
-              <div className="voucher-header">
-                <div>
-                  <div style={{ fontSize:11, color:"var(--text-muted)", textTransform:"uppercase" }}>Fee Voucher</div>
-                  <div style={{ fontWeight:700, fontSize:16 }}>Ref: {fee.referenceId || fee.voucherNo}</div>
+      {/* MODAL: PROFESSIONAL VOUCHER (PRINTABLE) */}
+      {showVoucher && selectedVoucher && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
+          <div id="printable-voucher" style={{ background: "#fff", width: "100%", maxWidth: "800px", borderRadius: 10, overflow: "hidden" }}>
+             <div style={{ padding: 40 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "4px solid #1e293b", paddingBottom: 20, marginBottom: 20 }}>
+                   <h1 style={{ margin: 0 }}>UNIVERSITY FEE VOUCHER</h1>
+                   <div style={{ textAlign: "right" }}>
+                      <div style={{ fontWeight: 900 }}>VOUCHER NO: {selectedVoucher.voucherNo}</div>
+                      <div>DATE: {new Date().toLocaleDateString()}</div>
+                   </div>
                 </div>
-                <div style={{ textAlign:"right" }}>
-                  <div className={`voucher-stamp ${fee.status === "Paid" ? "paid" : "unpaid"}`}>{fee.status}</div>
-                  <div style={{ fontSize:20, fontWeight:700, color: fee.status === "Paid" ? "var(--success)" : "var(--danger)" }}>
-                    Remaining: Rs. {fee.remainingAmount.toLocaleString()}
-                  </div>
+                
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 40, marginBottom: 30 }}>
+                   <div>
+                      <label style={{ fontSize: 10, color: "gray" }}>STUDENT DETAILS</label>
+                      <div style={{ fontWeight: 800, fontSize: 18 }}>{selectedVoucher.studentName}</div>
+                      <div>Roll No: {selectedVoucher.rollNo}</div>
+                      <div>Dept: {selectedVoucher.dept.toUpperCase()}</div>
+                   </div>
+                   <div style={{ textAlign: "right" }}>
+                      <label style={{ fontSize: 10, color: "gray" }}>PAYMENT TARGET</label>
+                      <div style={{ fontWeight: 800, fontSize: 18 }}>{selectedVoucher.bankName}</div>
+                      <div>DUE DATE: {selectedVoucher.dueDate}</div>
+                   </div>
                 </div>
-              </div>
 
-              {/* Verified Payments UI */}
-              <div style={{marginTop: 12, padding: 12, background: '#f8fafc', borderRadius: 6}}>
-                <strong>Payment History (Verified)</strong>
-                {fee.payments?.length > 0 ? (
-                   <ul style={{ margin:0, paddingLeft: 16, fontSize: 13 }}>
-                     {fee.payments.map((p, i) => (
-                       <li key={i}>{p.date} - {p.method} - Rs. {Number(p.amount).toLocaleString()}</li>
-                     ))}
-                   </ul>
-                ) : <div style={{ fontSize: 12, color: '#64748b' }}>No verified payments yet.</div>}
-              </div>
+                <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 30 }}>
+                   <thead style={{ background: "#f8fafc" }}>
+                      <tr><th style={{ padding: 15, textAlign: "left", border: "1px solid #ddd" }}>Description</th><th style={{ padding: 15, textAlign: "right", border: "1px solid #ddd" }}>Amount</th></tr>
+                   </thead>
+                   <tbody>
+                      <tr><td style={{ padding: 15, border: "1px solid #ddd" }}>{selectedVoucher.semester} Tuition & Semester Dues</td><td style={{ padding: 15, textAlign: "right", border: "1px solid #ddd" }}>Rs. {selectedVoucher.totalAmount}</td></tr>
+                      <tr style={{ fontWeight: 900 }}><td style={{ padding: 15, border: "1px solid #ddd", textAlign: "right" }}>TOTAL PAYABLE</td><td style={{ padding: 15, textAlign: "right", border: "1px solid #ddd" }}>Rs. {selectedVoucher.totalAmount}</td></tr>
+                   </tbody>
+                </table>
 
-              {/* NEW: Pending Payments UI */}
-              {fee.pendingPayments?.length > 0 && (
-                <div style={{marginTop: 8, padding: 12, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6}}>
-                  <strong style={{color: '#d97706'}}>⏳ Pending Verification</strong>
-                  <ul style={{ margin:0, paddingLeft: 16, fontSize: 13, color: '#92400e' }}>
-                    {fee.pendingPayments.map((p, i) => (
-                      <li key={i}>Rs. {Number(p.amount).toLocaleString()} submitted via {p.method} (Ref: {p.transactionId})</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div style={{ display:"flex", justifyContent:"flex-end", gap: 8, marginTop: 16 }}>
-                {fee.status !== "Paid" && (
-                  <button className="btn btn-primary btn-sm" onClick={() => setProofModal({ open:true, voucherId:fee.id, amount:"", date: new Date().toISOString().split('T')[0], method:"Bank Transfer", transactionId:"" })}>
-                    📤 Submit Proof
-                  </button>
-                )}
-                <button className="btn btn-outline btn-sm" onClick={() => printVoucher(fee)}>🖨️ Print Detailed Voucher</button>
-              </div>
-            </div>
-          ))}
+                <div style={{ fontSize: 11, color: "gray", fontStyle: "italic" }}>* Note: Please pay before the due date to avoid a daily late fee of Rs. {selectedVoucher.lateFeePerDay}.</div>
+             </div>
+             <div className="no-print" style={{ padding: 20, background: "#f1f5f9", textAlign: "right" }}>
+                <button onClick={() => window.print()} style={{ padding: "10px 20px", background: "#1e293b", color: "#fff", borderRadius: 8, marginRight: 10, cursor: "pointer" }}>Print Voucher</button>
+                <button onClick={() => setShowVoucher(false)} style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid #ddd", cursor: "pointer" }}>Close</button>
+             </div>
+          </div>
         </div>
       )}
 
-      {/* NEW: Proof Upload Modal */}
-      {proofModal.open && (
-        <div className="modal-overlay">
-          <form className="modal" onSubmit={handleSubmitProof} style={{maxWidth: 400}}>
-             <div className="modal-header">
-              <h3>Submit Payment Proof</h3>
-              <button type="button" className="btn btn-ghost btn-icon" onClick={()=>setProofModal({...proofModal, open:false})}>✕</button>
-            </div>
-            <p style={{fontSize: 12, color: "gray", marginBottom: 12}}>Submit your transaction details. Admin will verify and update your balance.</p>
-            <div className="form-group mb-2"><label>Amount Paid (Rs.)</label><input required className="form-control" type="number" min="1" value={proofModal.amount} onChange={e=>setProofModal({...proofModal, amount:e.target.value})} /></div>
-            <div className="form-group mb-2"><label>Payment Date</label><input required className="form-control" type="date" value={proofModal.date} onChange={e=>setProofModal({...proofModal, date:e.target.value})} /></div>
-            <div className="form-group mb-2">
-               <label>Payment Method</label>
-               <select className="form-control" value={proofModal.method} onChange={e=>setProofModal({...proofModal, method:e.target.value})}>
-                 <option>Bank Transfer</option><option>EasyPaisa/JazzCash</option><option>Cash Deposit</option>
-               </select>
-            </div>
-            <div className="form-group mb-4"><label>Transaction ID / Reference No.</label><input required className="form-control" placeholder="e.g. TID-123456789" value={proofModal.transactionId} onChange={e=>setProofModal({...proofModal, transactionId:e.target.value})} /></div>
-            <button type="submit" className="btn btn-primary full-width" disabled={submitting}>{submitting ? "Submitting..." : "Submit for Verification"}</button>
-          </form>
+      {/* MODAL: SUBMIT PROOF */}
+      {showSubmitModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000 }}>
+           <div style={{ background: "#fff", width: "100%", maxWidth: "400px", borderRadius: 24, padding: 30 }}>
+              <h3 style={{ marginTop: 0 }}>Submit Payment Proof</h3>
+              <div style={{ display: "grid", gap: 15 }}>
+                 <input type="number" placeholder="Actual Amount Paid" style={{ padding: 12, borderRadius: 12, border: "1px solid #ddd" }} value={proof.amount} onChange={e => setProof({...proof, amount: e.target.value})} />
+                 <input type="text" placeholder="Transaction ID (TID)" style={{ padding: 12, borderRadius: 12, border: "1px solid #ddd" }} value={proof.transactionId} onChange={e => setProof({...proof, transactionId: e.target.value})} />
+                 <select style={{ padding: 12, borderRadius: 12, border: "1px solid #ddd" }} value={proof.method} onChange={e => setProof({...proof, method: e.target.value})}>
+                    <option>Bank Transfer</option><option>EasyPaisa/JazzCash</option><option>Cash Deposit</option>
+                 </select>
+                 <button onClick={handleSubmitProof} style={{ background: "#6366f1", color: "#fff", border: "none", padding: 14, borderRadius: 12, fontWeight: 800 }}>Submit for Verification</button>
+                 <button onClick={() => setShowSubmitModal(false)} style={{ background: "none", border: "none", color: "gray" }}>Cancel</button>
+              </div>
+           </div>
         </div>
       )}
-      
-      {/* Print View remains the same... */}
     </div>
   );
 }
