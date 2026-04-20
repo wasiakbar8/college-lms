@@ -86,7 +86,7 @@ export default function AdminDashboard() {
           University Management System
         </h2>
         <p style={{ fontSize: 15, opacity: 0.8, marginTop: 10, maxWidth: "500px", lineHeight: "1.5" }}>
-          Welcome back! Access and manage all academic modules, financial records, and student activities from your central command.
+          Welcome back! Access and manage all academic modules, records, and student activities from your central command.
         </p>
       </div>
 

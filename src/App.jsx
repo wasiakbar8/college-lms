@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+
+// Import all your pages here (Keep your existing imports)
 import LoginPage from "./pages/LoginPage";
 import StudentLayout from "./pages/student/StudentLayout";
 import StudentDashboard from "./pages/student/StudentDashboard";
@@ -22,18 +24,46 @@ import AdminTimetable from "./pages/admin/AdminTimetable";
 
 function ProtectedRoute({ children, allowedRole }) {
   const { currentUser, userRole, loading } = useAuth();
-  if (loading) return <div style={{ display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",fontSize:16,color:"#1a3a5c",fontFamily:"sans-serif" }}>Loading...</div>;
-  if (!currentUser || !userRole) return <Navigate to="/login" replace />;
+  
+  if (loading) return <div style={{ padding: 20 }}>Verifying Access...</div>;
+  if (!currentUser) return <Navigate to="/login" replace />;
   if (allowedRole && userRole !== allowedRole) return <Navigate to="/login" replace />;
+  
   return children;
 }
 
 function AppRoutes() {
   const { currentUser, userRole, loading } = useAuth();
-  if (loading) return <div style={{ display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",fontSize:16,color:"#1a3a5c",fontFamily:"sans-serif" }}>Loading...</div>;
+
+  // Debugging: This will tell you in the Console why the page is blank
+  useEffect(() => {
+    console.log("Auth State:", { currentUser: !!currentUser, userRole, loading });
+  }, [currentUser, userRole, loading]);
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+        <div style={{ width: 40, height: 40, border: "4px solid #f3f3f3", borderTop: "4px solid #1a3a5c", borderRadius: "50%", animation: "spin 1s linear infinite" }}></div>
+        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
   return (
     <Routes>
-      <Route path="/login" element={currentUser && userRole ? <Navigate to={userRole === "admin" ? "/admin" : "/student"} replace /> : <LoginPage />} />
+      {/* Route for the root path / */}
+      <Route path="/" element={
+        currentUser && userRole 
+          ? <Navigate to={userRole === "admin" ? "/admin" : "/student"} replace /> 
+          : <Navigate to="/login" replace />
+      } />
+
+      <Route path="/login" element={
+        currentUser && userRole 
+          ? <Navigate to={userRole === "admin" ? "/admin" : "/student"} replace /> 
+          : <LoginPage />
+      } />
+
       <Route path="/student" element={<ProtectedRoute allowedRole="student"><StudentLayout /></ProtectedRoute>}>
         <Route index element={<StudentDashboard />} />
         <Route path="dashboard" element={<StudentDashboard />} />
@@ -45,6 +75,7 @@ function AppRoutes() {
         <Route path="fee" element={<StudentFee />} />
         <Route path="transcript" element={<StudentTranscript />} />
       </Route>
+
       <Route path="/admin" element={<ProtectedRoute allowedRole="admin"><AdminLayout /></ProtectedRoute>}>
         <Route index element={<AdminDashboard />} />
         <Route path="students" element={<AdminStudents />} />
@@ -54,11 +85,18 @@ function AppRoutes() {
         <Route path="fee" element={<AdminFee />} />
         <Route path="timetable" element={<AdminTimetable />} />
       </Route>
+
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }
 
 export default function App() {
-  return <AuthProvider><Router><AppRoutes /></Router></AuthProvider>;
+  return (
+    <AuthProvider>
+      <Router>
+        <AppRoutes />
+      </Router>
+    </AuthProvider>
+  );
 }
