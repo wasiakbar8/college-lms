@@ -415,16 +415,48 @@ Sara Khan,Khan Muhammad,33102-7654321-2,sara@university.edu,0311-7654321,Female,
         </span>
       </div>
 
-      {/* Header */}
-      <div className="page-header">
+      {/* Header — title left, semester pill-bar right */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
         <div>
-          <h2>{activeDept.name}</h2>
-          <div className="page-header-sub">Manage students by semester</div>
+          <h2 style={{ margin: 0 }}>{activeDept.icon} {activeDept.name}</h2>
+          <div className="page-header-sub">
+            Weekly Schedule: <strong>{["1st","2nd","3rd","4th","5th","6th","7th","8th"][activeSem - 1]} Semester</strong>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <button className="btn btn-outline" onClick={openBulkModal}>📂 Bulk Upload</button>
-          <button className="btn btn-primary" onClick={openAdd}>+ Add Student</button>
+
+        {/* Semester pill-bar — right side */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 2,
+          background: "#fff", padding: "5px 6px",
+          borderRadius: 12, border: "1px solid var(--border)",
+        }}>
+          {SEMESTERS.map(sem => {
+            const isActive = activeSem === sem;
+            const ordinal = ["1st","2nd","3rd","4th","5th","6th","7th","8th"][sem - 1];
+            return (
+              <button
+                key={sem}
+                onClick={() => { setActiveSem(sem); setSearch(""); }}
+                style={{
+                  padding: "6px 14px", borderRadius: 8, fontSize: 13,
+                  cursor: "pointer", border: "none",
+                  background: isActive ? "#1e3a6e" : "transparent",
+                  color: isActive ? "#fff" : "#6b7280",
+                  fontWeight: isActive ? 700 : 500,
+                  transition: "all .15s", lineHeight: 1.4, whiteSpace: "nowrap",
+                }}
+              >
+                {ordinal}
+              </button>
+            );
+          })}
         </div>
+      </div>
+
+      {/* Action buttons */}
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginBottom: 16 }}>
+        <button className="btn btn-outline" onClick={openBulkModal}>📂 Bulk Upload</button>
+        <button className="btn btn-primary" onClick={openAdd}>+ Add Student</button>
       </div>
 
       {/* Credentials banner */}
@@ -447,33 +479,6 @@ Sara Khan,Khan Muhammad,33102-7654321-2,sara@university.edu,0311-7654321,Female,
           >✕ Dismiss</button>
         </div>
       )}
-
-      {/* Semester tabs */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
-        {SEMESTERS.map(sem => {
-          const sc = semCount(activeDept.id, sem);
-          const isActive = activeSem === sem;
-          return (
-            <button
-              key={sem}
-              onClick={() => { setActiveSem(sem); setSearch(""); }}
-              style={{
-                padding: "6px 16px",
-                borderRadius: 20,
-                fontSize: 13,
-                cursor: "pointer",
-                border: isActive ? "none" : "1px solid var(--border)",
-                background: isActive ? activeDept.color : "transparent",
-                color: isActive ? "#fff" : "var(--text-muted)",
-                fontWeight: isActive ? 600 : 400,
-                transition: "all .15s",
-              }}
-            >
-              Semester {sem}{sc > 0 ? ` (${sc})` : ""}
-            </button>
-          );
-        })}
-      </div>
 
       {/* Search */}
       <div style={{ marginBottom: 16 }}>

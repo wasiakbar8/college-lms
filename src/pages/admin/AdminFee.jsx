@@ -4,16 +4,20 @@ import { db } from "../../firebase/config";
 import { toast, Toaster } from "react-hot-toast";
 import { ArrowLeft, Plus, X, Search, FileText, CheckCircle, XCircle, Eye, Printer, AlertCircle } from "lucide-react";
 
+// ── Configuration (Matched with Dashboard Theme) ──
 const DEPARTMENTS = [
-  { id: "cs", name: "Computer Science", icon: "💻", color: "#185FA5" },
-  { id: "ir", name: "International Relations", icon: "🌍", color: "#0F6E56" },
-  { id: "edu", name: "Education", icon: "📚", color: "#854F0B" },
-  { id: "bus", name: "Business Administration", icon: "📊", color: "#993C1D" },
-  { id: "eng", name: "English", icon: "✍️", color: "#534AB7" },
-  { id: "math", name: "Mathematics", icon: "🔢", color: "#3B6D11" },
+  { id: "cs",   name: "Computer Science",         icon: "💻", bg: "#E6F1FB", color: "#185FA5" },
+  { id: "ir",   name: "International Relations", icon: "🌍", bg: "#E1F5EE", color: "#0F6E56" },
+  { id: "edu",  name: "Education",                 icon: "📚", bg: "#FAEEDA", color: "#854F0B" },
+  { id: "bus",  name: "Business Administration", icon: "📊", bg: "#FAECE7", color: "#993C1D" },
+  { id: "eng",  name: "English",                 icon: "✍️", bg: "#EEEDFE", color: "#534AB7" },
+  { id: "math", name: "Mathematics",             icon: "🔢", bg: "#EAF3DE", color: "#3B6D11" },
 ];
 
-const SEMESTERS = ["1st Semester", "2nd Semester", "3rd Semester", "4th Semester", "5th Semester", "6th Semester", "7th Semester", "8th Semester"];
+const SEMESTERS = [
+  "1st Semester", "2nd Semester", "3rd Semester", "4th Semester",
+  "5th Semester", "6th Semester", "7th Semester", "8th Semester",
+];
 
 const INITIAL_FEE_FORM = {
   amount: "",
@@ -23,6 +27,18 @@ const INITIAL_FEE_FORM = {
   bankName: "HBL",
   note: "Standard Semester Fee"
 };
+
+const c = { 
+  primary: "#6366f1", 
+  sub: "#6b7280", 
+  border: "#e5e7eb", 
+  bg: "#f4f6fb", 
+  white: "#ffffff",
+  dark: "#1e293b"
+};
+
+const lbl = { display: "block", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: 6, letterSpacing: "0.05em" };
+const inp = { width: "100%", padding: "10px 14px", borderRadius: 10, border: `1px solid ${c.border}`, fontSize: 14, outline: "none", boxSizing: "border-box" };
 
 export default function AdminFee() {
   const [view, setView] = useState("depts");
@@ -34,9 +50,9 @@ export default function AdminFee() {
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [showVoucherModal, setShowVoucherModal] = useState(false); // NEW
+  const [showVoucherModal, setShowVoucherModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [selectedVoucher, setSelectedVoucher] = useState(null); // NEW
+  const [selectedVoucher, setSelectedVoucher] = useState(null);
   const [feeForm, setFeeForm] = useState(INITIAL_FEE_FORM);
 
   useEffect(() => {
@@ -116,188 +132,254 @@ export default function AdminFee() {
     } catch (e) { toast.error("Action failed"); }
   };
 
+  // ── View 1: Department Cards ──
   if (view === "depts") {
     return (
-      <div style={{ padding: 32, background: "#f4f6fb", minHeight: "100vh" }}>
+      <div style={{ padding: 40, background: c.bg, minHeight: "100vh" }}>
         <Toaster />
-        <h2 style={{ fontWeight: 800, color: "#1e293b" }}>Finance & Fee Center</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20, marginTop: 24 }}>
-          {DEPARTMENTS.map(dept => (
-            <div key={dept.id} onClick={() => { setActiveDept(dept); setView("students"); }}
-                 style={{ background: "#fff", padding: 30, borderRadius: 24, cursor: "pointer", border: "1px solid #e2e8f0", transition: "0.2s" }}>
-              <div style={{ fontSize: 32, marginBottom: 15 }}>{dept.icon}</div>
-              <h3 style={{ margin: 0 }}>{dept.name}</h3>
-              <div style={{ marginTop: 15, fontSize: 12, color: "#6366f1", fontWeight: 700 }}>Open Dues List →</div>
-            </div>
-          ))}
+        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+          <h2 style={{ fontWeight: 800, color: c.dark }}>Finance & Fee Center</h2>
+          <p style={{ color: c.sub, marginBottom: 30 }}>Select a department to manage dues, verify payments, and issue vouchers.</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
+            {DEPARTMENTS.map(dept => (
+              <div key={dept.id} onClick={() => { setActiveDept(dept); setView("students"); }}
+                   style={{ background: "#fff", padding: 30, borderRadius: 20, cursor: "pointer", border: `1px solid ${c.border}`, transition: "0.2s" }}>
+                <div style={{ fontSize: 40, marginBottom: 15 }}>{dept.icon}</div>
+                <h3 style={{ margin: 0, color: c.dark }}>{dept.name}</h3>
+                <div style={{ marginTop: 15, fontSize: 12, color: dept.color, fontWeight: 700 }}>Manage Finance →</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
+  // ── View 2: Student Fee List with Semester Filter ──
   return (
-    <div style={{ padding: 32, background: "#f4f6fb", minHeight: "100vh" }}>
+    <div style={{ padding: "30px 20px", background: c.bg, minHeight: "100vh" }}>
       <Toaster />
-      <button onClick={() => setView("depts")} style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", color: "#6366f1", cursor: "pointer", fontWeight: 700, marginBottom: 20 }}>
-        <ArrowLeft size={18} /> Back to Hub
-      </button>
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <button onClick={() => setView("depts")} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: c.primary, cursor: "pointer", fontWeight: 700, marginBottom: 20 }}>
+          <ArrowLeft size={18} /> Back to Departments
+        </button>
 
-      {/* ── VERIFICATION QUEUE ── */}
-      {vouchers.filter(v => v.dept === activeDept.id && v.pendingPayments?.length > 0).length > 0 && (
-        <div style={{ marginBottom: 30 }}>
-          <h4 style={{ display: "flex", alignItems: "center", gap: 8, color: "#b45309", marginBottom: 15 }}>
-            <AlertCircle size={20} /> Pending Verifications
-          </h4>
-          <div style={{ display: "grid", gap: 12 }}>
-            {vouchers.filter(v => v.dept === activeDept.id && v.pendingPayments?.length > 0).map(v => (
-              v.pendingPayments.map((p, idx) => (
-                <div key={`${v.id}-${idx}`} style={{ background: "#fffbeb", border: "1px solid #fde68a", padding: "16px 20px", borderRadius: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontWeight: 800 }}>{v.studentName} <span style={{ fontWeight: 400, color: "#92400e" }}>({v.rollNo})</span></div>
-                    <div style={{ fontSize: 12, color: "#b45309", marginTop: 4 }}>
-                      TID: <strong>{p.transactionId}</strong> • Amount: <strong>Rs. {p.amount}</strong> • Via: {p.method}
+        {/* ── VERIFICATION QUEUE ── */}
+        {vouchers.filter(v => v.dept === activeDept.id && v.pendingPayments?.length > 0).length > 0 && (
+          <div style={{ marginBottom: 30 }}>
+            <h4 style={{ display: "flex", alignItems: "center", gap: 8, color: "#b45309", marginBottom: 15, fontWeight: 800 }}>
+              <AlertCircle size={20} /> Action Required: Pending Proofs
+            </h4>
+            <div style={{ display: "grid", gap: 12 }}>
+              {vouchers.filter(v => v.dept === activeDept.id && v.pendingPayments?.length > 0).map(v => (
+                v.pendingPayments.map((p, idx) => (
+                  <div key={`${v.id}-${idx}`} style={{ background: "#fffbeb", border: "1px solid #fde68a", padding: "16px 20px", borderRadius: 16, display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                    <div>
+                      <div style={{ fontWeight: 800 }}>{v.studentName} <span style={{ fontWeight: 400, color: c.sub }}>({v.rollNo})</span></div>
+                      <div style={{ fontSize: 12, color: "#b45309", marginTop: 4 }}>
+                        TID: <strong>{p.transactionId}</strong> • Rs. <strong>{p.amount}</strong> via {p.method}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => { setSelectedVoucher(v); setShowVoucherModal(true); }} style={{ background: "#fff", color: c.sub, border: `1px solid ${c.border}`, padding: "8px 12px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                        <Eye size={14} /> View
+                      </button>
+                      <button onClick={() => handleApproveReject(v.id, p, "approve")} style={{ background: "#16a34a", color: "#fff", border: "none", padding: "8px 12px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                        <CheckCircle size={14} /> Approve
+                      </button>
+                      <button onClick={() => handleApproveReject(v.id, p, "reject")} style={{ background: "#dc2626", color: "#fff", border: "none", padding: "8px 12px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                        <XCircle size={14} /> Reject
+                      </button>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <button onClick={() => { setSelectedVoucher(v); setShowVoucherModal(true); }} style={{ background: "#fff", color: "#64748b", border: "1px solid #ddd", padding: "8px 16px", borderRadius: 10, cursor: "pointer", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-                      <Eye size={14} /> View Voucher
-                    </button>
-                    <button onClick={() => handleApproveReject(v.id, p, "approve")} style={{ background: "#16a34a", color: "#fff", border: "none", padding: "8px 16px", borderRadius: 10, cursor: "pointer", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-                      <CheckCircle size={14} /> Approve
-                    </button>
-                    <button onClick={() => handleApproveReject(v.id, p, "reject")} style={{ background: "#dc2626", color: "#fff", border: "none", padding: "8px 16px", borderRadius: 10, cursor: "pointer", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-                      <XCircle size={14} /> Reject
-                    </button>
-                  </div>
-                </div>
-              ))
+                ))
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 30 }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 28 }}>{activeDept.icon} {activeDept.name}</h1>
+            <p style={{ color: c.sub }}>Finance View: <strong>{activeSem}</strong></p>
+          </div>
+          
+          {/* Semester Pill Filter */}
+          <div style={{ display: "flex", gap: 6, background: "#fff", padding: 6, borderRadius: 14, border: `1px solid ${c.border}` }}>
+            {SEMESTERS.map(sem => (
+              <button key={sem} onClick={() => setActiveSem(sem)}
+                style={{
+                  padding: "8px 14px", borderRadius: 10, fontSize: 11, cursor: "pointer", border: "none",
+                  background: activeSem === sem ? activeDept.color : "transparent",
+                  color: activeSem === sem ? "#fff" : c.sub, fontWeight: 700, transition: "0.2s"
+                }}>
+                {sem.split(" ")[0]}
+              </button>
             ))}
           </div>
         </div>
-      )}
 
-      {/* ── STUDENT LIST ── */}
-      <div style={{ background: "#fff", borderRadius: 24, padding: 24, border: "1px solid #e2e8f0" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-          <h2 style={{ margin: 0 }}>{activeDept.icon} {activeDept.name}</h2>
-          <div style={{ display: "flex", gap: 10 }}>
-            <select value={activeSem} onChange={e => setActiveSem(e.target.value)} style={{ padding: "10px 16px", borderRadius: 12, border: "1px solid #e2e8f0", fontWeight: 600 }}>
-              {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <input type="text" placeholder="Search Roll No..." style={{ padding: "10px 16px", borderRadius: 12, border: "1px solid #e2e8f0" }} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        <div style={{ background: "#fff", borderRadius: 24, border: `1px solid ${c.border}`, overflow: "hidden" }}>
+          <div style={{ padding: 20, borderBottom: `1px solid ${c.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h4 style={{ margin: 0 }}>Fee Ledger: {activeSem}</h4>
+            <div style={{ position: "relative" }}>
+               <Search size={16} style={{ position: "absolute", left: 12, top: 10, color: c.sub }} />
+               <input placeholder="Search Roll No..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                      style={{ ...inp, paddingLeft: 35, width: 250, height: 36 }} />
+            </div>
           </div>
-        </div>
 
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ textAlign: "left", background: "#f8fafc", color: "#64748b", fontSize: 11, textTransform: "uppercase" }}>
-              <th style={{ padding: 16 }}>Student</th>
-              <th style={{ padding: 16 }}>Roll No</th>
-              <th style={{ padding: 16 }}>Status</th>
-              <th style={{ padding: 16, textAlign: "right" }}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredStudents.map(student => {
-              const v = vouchers.find(v => v.rollNo === student.rollNo && normalizeSem(v.semester) === normalizeSem(activeSem));
-              return (
-                <tr key={student.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={{ padding: 16, fontWeight: 700 }}>{student.name}</td>
-                  <td style={{ padding: 16 }}>{student.rollNo}</td>
-                  <td style={{ padding: 16 }}>
-                    {v ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ padding: "5px 12px", borderRadius: 8, fontSize: 11, fontWeight: 800, background: v.status === 'Paid' ? '#dcfce7' : '#fee2e2', color: v.status === 'Paid' ? '#16a34a' : '#dc2626' }}>
-                          {v.status.toUpperCase()}
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ background: "#f8fafc" }}>
+              <tr style={{ textAlign: "left", color: c.sub, fontSize: 11, textTransform: "uppercase" }}>
+                <th style={{ padding: 16 }}>Student</th>
+                <th style={{ padding: 16 }}>Roll No</th>
+                <th style={{ padding: 16 }}>Payment Status</th>
+                <th style={{ padding: 16, textAlign: "right" }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredStudents.map(student => {
+                const v = vouchers.find(v => v.rollNo === student.rollNo && normalizeSem(v.semester) === normalizeSem(activeSem));
+                return (
+                  <tr key={student.id} style={{ borderBottom: `1px solid ${c.border}` }}>
+                    <td style={{ padding: 16, fontWeight: 700, color: c.dark }}>{student.name}</td>
+                    <td style={{ padding: 16 }}>
+                        <span style={{ background: activeDept.bg, color: activeDept.color, padding: "4px 10px", borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
+                            {student.rollNo}
                         </span>
-                        <button onClick={() => { setSelectedVoucher(v); setShowVoucherModal(true); }} style={{ background: "none", border: "none", color: "#6366f1", cursor: "pointer", display: "flex", alignItems: "center" }} title="View Voucher">
-                          <Eye size={16} />
+                    </td>
+                    <td style={{ padding: 16 }}>
+                      {v ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ padding: "5px 12px", borderRadius: 8, fontSize: 11, fontWeight: 800, background: v.status === 'Paid' ? '#dcfce7' : '#fee2e2', color: v.status === 'Paid' ? '#16a34a' : '#dc2626' }}>
+                            {v.status.toUpperCase()}
+                          </span>
+                          <button onClick={() => { setSelectedVoucher(v); setShowVoucherModal(true); }} style={{ background: "none", border: "none", color: c.primary, cursor: "pointer" }} title="View Voucher">
+                            <Eye size={16} />
+                          </button>
+                        </div>
+                      ) : <span style={{ color: "#cbd5e1", fontSize: 12 }}>No Voucher Assigned</span>}
+                    </td>
+                    <td style={{ padding: 16, textAlign: "right" }}>
+                      {!v ? (
+                        <button onClick={() => { setSelectedStudent(student); setShowAssignModal(true); }} style={{ background: c.primary, color: "#fff", border: "none", padding: "8px 16px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
+                            + Assign Fee
                         </button>
-                      </div>
-                    ) : <span style={{ color: "#94a3b8", fontSize: 12 }}>Not Assigned</span>}
-                  </td>
-                  <td style={{ padding: 16, textAlign: "right" }}>
-                    {!v ? (
-                      <button onClick={() => { setSelectedStudent(student); setShowAssignModal(true); }} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "8px 16px", borderRadius: 10, cursor: "pointer", fontWeight: 700 }}>Assign Fee</button>
-                    ) : <span style={{ fontSize: 12, fontWeight: 700 }}>Rs. {v.totalAmount}</span>}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                      ) : <span style={{ fontSize: 13, fontWeight: 800, color: c.dark }}>Rs. {v.totalAmount}</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {filteredStudents.length === 0 && (
+            <div style={{ padding: 60, textAlign: "center", color: "#94a3b8" }}>No students found in this semester.</div>
+          )}
+        </div>
       </div>
 
-      {/* ── MODAL: ASSIGN ── */}
+      {/* --- MODAL: ASSIGN --- */}
       {showAssignModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}>
-          <div style={{ background: "#fff", width: "100%", maxWidth: "480px", borderRadius: 24, padding: 24 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
-              <h3 style={{ margin: 0 }}>Assign New Voucher</h3>
+          <div style={{ background: "#fff", width: "100%", maxWidth: "480px", borderRadius: 24, overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}>
+            <div style={{ background: c.dark, padding: "20px 24px", color: "#fff", display: "flex", justifyContent: "space-between" }}>
+              <h3 style={{ margin: 0 }}>Assign Fee Voucher</h3>
               <X onClick={() => setShowAssignModal(false)} style={{ cursor: "pointer" }} />
             </div>
-            <div style={{ display: "grid", gap: 15 }}>
-              <div style={{ background: "#f8fafc", padding: 15, borderRadius: 16, border: "1px solid #e2e8f0" }}>
-                <strong>{selectedStudent?.name}</strong> • {activeSem}
+            <div style={{ padding: 24 }}>
+              <div style={{ background: "#f1f5f9", padding: 15, borderRadius: 15, marginBottom: 20 }}>
+                <div style={{ fontWeight: 800 }}>{selectedStudent?.name}</div>
+                <div style={{ fontSize: 12, color: c.sub }}>Roll No: {selectedStudent?.rollNo} • {activeSem}</div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <input type="number" placeholder="Amount (Rs.)" style={{ padding: 12, borderRadius: 12, border: "1px solid #ddd" }} value={feeForm.amount} onChange={e => setFeeForm({...feeForm, amount: e.target.value})} />
-                <input type="text" placeholder="Voucher No" style={{ padding: 12, borderRadius: 12, border: "1px solid #ddd" }} value={feeForm.voucherNo} onChange={e => setFeeForm({...feeForm, voucherNo: e.target.value})} />
+              
+              <div style={{ display: "grid", gap: 15 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <label style={lbl}>Amount (Rs.)</label>
+                    <input type="number" style={inp} placeholder="e.g. 45000" value={feeForm.amount} onChange={e => setFeeForm({...feeForm, amount: e.target.value})} />
+                  </div>
+                  <div>
+                    <label style={lbl}>Voucher No</label>
+                    <input style={inp} placeholder="UAF-XXXX" value={feeForm.voucherNo} onChange={e => setFeeForm({...feeForm, voucherNo: e.target.value})} />
+                  </div>
+                </div>
+                
+                <div>
+                  <label style={lbl}>Due Date</label>
+                  <input type="date" style={inp} value={feeForm.dueDate} onChange={e => setFeeForm({...feeForm, dueDate: e.target.value})} />
+                </div>
+
+                <div>
+                  <label style={lbl}>Preferred Bank</label>
+                  <select style={inp} value={feeForm.bankName} onChange={e => setFeeForm({...feeForm, bankName: e.target.value})}>
+                    <option value="HBL">HBL Bank</option>
+                    <option value="MCB">MCB Bank</option>
+                    <option value="UBL">UBL Bank</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={lbl}>Internal Note</label>
+                  <textarea style={{...inp, height: 80}} placeholder="Special instructions..." value={feeForm.note} onChange={e => setFeeForm({...feeForm, note: e.target.value})} />
+                </div>
+
+                <div style={{ display: "flex", gap: 12, marginTop: 10 }}>
+                  <button onClick={() => setShowAssignModal(false)} style={{ flex: 1, padding: 12, borderRadius: 12, border: `1px solid ${c.border}`, background: "none", fontWeight: 600 }}>Cancel</button>
+                  <button onClick={handleAssignFee} style={{ flex: 2, background: c.primary, color: "#fff", border: "none", padding: 12, borderRadius: 12, fontWeight: 800 }}>Post Voucher</button>
+                </div>
               </div>
-              <input type="date" style={{ padding: 12, borderRadius: 12, border: "1px solid #ddd" }} value={feeForm.dueDate} onChange={e => setFeeForm({...feeForm, dueDate: e.target.value})} />
-              <select style={{ padding: 12, borderRadius: 12, border: "1px solid #ddd" }} value={feeForm.bankName} onChange={e => setFeeForm({...feeForm, bankName: e.target.value})}>
-                <option value="HBL">HBL Bank</option><option value="MCB">MCB Bank</option><option value="UBL">UBL Bank</option>
-              </select>
-              <textarea placeholder="Note" style={{ padding: 12, borderRadius: 12, border: "1px solid #ddd" }} value={feeForm.note} onChange={e => setFeeForm({...feeForm, note: e.target.value})} />
-              <button onClick={handleAssignFee} style={{ background: "#6366f1", color: "#fff", border: "none", padding: 14, borderRadius: 12, fontWeight: 800 }}>Create & Send</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── MODAL: VIEW VOUCHER (SHARED DESIGN) ── */}
+      {/* --- MODAL: VIEW VOUCHER --- */}
       {showVoucherModal && selectedVoucher && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
-          <div style={{ background: "#fff", width: "100%", maxWidth: "800px", borderRadius: 15, overflow: "hidden" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20, backdropFilter: "blur(8px)" }}>
+          <div style={{ background: "#fff", width: "100%", maxWidth: "800px", borderRadius: 24, overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)" }}>
              <div style={{ padding: 40 }} id="printable-area">
-                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "4px solid #1e293b", paddingBottom: 20, marginBottom: 20 }}>
-                   <h1 style={{ margin: 0, color: "#1e293b" }}>UNIVERSITY FEE VOUCHER</h1>
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: `4px solid ${c.dark}`, paddingBottom: 20, marginBottom: 20 }}>
+                   <h1 style={{ margin: 0, color: c.dark }}>UAF FEE VOUCHER</h1>
                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontWeight: 900 }}>VOUCHER NO: {selectedVoucher.voucherNo}</div>
-                      <div>DATE: {selectedVoucher.createdAt?.split('T')[0]}</div>
+                      <div style={{ fontWeight: 900, fontSize: 18 }}>NO: {selectedVoucher.voucherNo}</div>
+                      <div style={{ color: c.sub, fontSize: 12 }}>ISSUED: {selectedVoucher.createdAt?.split('T')[0]}</div>
                    </div>
                 </div>
                 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 40, marginBottom: 30 }}>
                    <div>
-                      <label style={{ fontSize: 10, color: "gray", textTransform: "uppercase" }}>Student Details</label>
+                      <label style={lbl}>Student Info</label>
                       <div style={{ fontWeight: 800, fontSize: 18 }}>{selectedVoucher.studentName}</div>
-                      <div>Roll No: {selectedVoucher.rollNo}</div>
-                      <div>Dept: {selectedVoucher.dept?.toUpperCase()}</div>
+                      <div style={{ fontSize: 14 }}>Roll No: {selectedVoucher.rollNo}</div>
+                      <div style={{ fontSize: 14 }}>Department: {selectedVoucher.dept?.toUpperCase()}</div>
                    </div>
                    <div style={{ textAlign: "right" }}>
-                      <label style={{ fontSize: 10, color: "gray", textTransform: "uppercase" }}>Payment Details</label>
+                      <label style={lbl}>Payment Portal</label>
                       <div style={{ fontWeight: 800, fontSize: 18 }}>{selectedVoucher.bankName} Bank</div>
-                      <div style={{ color: "#dc2626", fontWeight: 700 }}>DUE DATE: {selectedVoucher.dueDate}</div>
+                      <div style={{ color: "#dc2626", fontWeight: 800, marginTop: 5 }}>DUE DATE: {selectedVoucher.dueDate}</div>
                    </div>
                 </div>
 
                 <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 30 }}>
                    <thead style={{ background: "#f8fafc" }}>
-                      <tr><th style={{ padding: 15, textAlign: "left", border: "1px solid #ddd" }}>Description</th><th style={{ padding: 15, textAlign: "right", border: "1px solid #ddd" }}>Amount</th></tr>
+                      <tr><th style={{ padding: 15, textAlign: "left", border: `1px solid ${c.border}`, fontSize: 12 }}>DESCRIPTION</th><th style={{ padding: 15, textAlign: "right", border: `1px solid ${c.border}`, fontSize: 12 }}>AMOUNT</th></tr>
                    </thead>
                    <tbody>
-                      <tr><td style={{ padding: 15, border: "1px solid #ddd" }}>{selectedVoucher.semester} Academic Dues</td><td style={{ padding: 15, textAlign: "right", border: "1px solid #ddd" }}>Rs. {selectedVoucher.totalAmount}</td></tr>
-                      <tr style={{ fontWeight: 900 }}><td style={{ padding: 15, border: "1px solid #ddd", textAlign: "right" }}>TOTAL PAYABLE</td><td style={{ padding: 15, textAlign: "right", border: "1px solid #ddd" }}>Rs. {selectedVoucher.totalAmount}</td></tr>
+                      <tr><td style={{ padding: 15, border: `1px solid ${c.border}` }}>{selectedVoucher.semester} Academic Dues</td><td style={{ padding: 15, textAlign: "right", border: `1px solid ${c.border}` }}>Rs. {selectedVoucher.totalAmount}</td></tr>
+                      <tr style={{ fontWeight: 900 }}><td style={{ padding: 15, border: `1px solid ${c.border}`, textAlign: "right", background: "#f8fafc" }}>TOTAL PAYABLE</td><td style={{ padding: 15, textAlign: "right", border: `1px solid ${c.border}`, background: "#f8fafc" }}>Rs. {selectedVoucher.totalAmount}</td></tr>
                    </tbody>
                 </table>
-                <div style={{ fontSize: 11, color: "gray" }}>Status: <strong>{selectedVoucher.status.toUpperCase()}</strong> • Verified Amount: Rs. {selectedVoucher.paidAmt || 0}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ fontSize: 11, color: c.sub }}>Reference: <b>{selectedVoucher.referenceId}</b> | Status: <b>{selectedVoucher.status.toUpperCase()}</b></div>
+                    {selectedVoucher.status === "Paid" && <div style={{ color: "#16a34a", fontWeight: 800, fontSize: 12 }}>✓ VERIFIED PAYMENT</div>}
+                </div>
              </div>
-             <div style={{ padding: 20, background: "#f1f5f9", textAlign: "right" }}>
-                <button onClick={() => window.print()} style={{ padding: "10px 20px", background: "#1e293b", color: "#fff", borderRadius: 8, marginRight: 10, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
-                  <Printer size={16} /> Print
+             <div style={{ padding: "20px 40px", background: "#f8fafc", borderTop: `1px solid ${c.border}`, textAlign: "right" }}>
+                <button onClick={() => window.print()} style={{ padding: "10px 20px", background: c.dark, color: "#fff", border: "none", borderRadius: 12, marginRight: 10, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 700 }}>
+                  <Printer size={16} /> Print Voucher
                 </button>
-                <button onClick={() => setShowVoucherModal(false)} style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Close</button>
+                <button onClick={() => setShowVoucherModal(false)} style={{ padding: "10px 20px", borderRadius: 12, border: `1px solid ${c.border}`, background: "#fff", cursor: "pointer", fontWeight: 700 }}>Close</button>
              </div>
           </div>
         </div>
