@@ -70,19 +70,19 @@ A modern, comprehensive Learning Management System built for universities to str
 
 ### Welcome & Login Interface
 <div align="center">
-  <img src="./src/assets/lms11.png" alt="Welcome & Login Screen" width="85%" />
+  <img src="./src/assets/lms11.jpg" alt="Welcome & Login Screen" width="85%" />
   <p><em>Figure 1: Welcome and Login Interface</em></p>
 </div>
 
 ### Dashboard Overview
 <div align="center">
-  <img src="./src/assets/lms2.png" alt="Dashboard Overview" width="85%" />
+  <img src="./src/assets/lms2.jpg" alt="Dashboard Overview" width="85%" />
   <p><em>Figure 2: Main Dashboard Overview</em></p>
 </div>
 
 ### Features & Management Interface
 <div align="center">
-  <img src="./src/assets/lms3.png" alt="Features & Management" width="85%" />
+  <img src="./src/assets/lms3.jpg" alt="Features & Management" width="85%" />
   <p><em>Figure 3: Features and Management Interface</em></p>
 </div>
 
