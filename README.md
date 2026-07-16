@@ -15,8 +15,17 @@ A modern, comprehensive Learning Management System built for universities to str
 
 ---
 
+## 🚀 Live Demo
+
+**[Visit the Live Application](https://college-lms-728h.vercel.app/)**
+
+Experience the LMS in action: https://college-lms-728h.vercel.app/
+
+---
+
 ## 📋 Table of Contents
 
+- [Live Demo](#-live-demo)
 - [Features](#features)
 - [Screenshots](#screenshots)
 - [Tech Stack](#tech-stack)
