@@ -18,6 +18,7 @@ A modern, comprehensive Learning Management System built for universities to str
 ## 📋 Table of Contents
 
 - [Features](#features)
+- [Screenshots](#screenshots)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
@@ -65,6 +66,28 @@ A modern, comprehensive Learning Management System built for universities to str
 
 ---
 
+## 📸 Screenshots
+
+### Welcome & Login Interface
+<div align="center">
+  <img src="./src/assets/lms11.jpg" alt="Welcome & Login Screen" width="85%" />
+  <p><em>Figure 1: Welcome and Login Interface</em></p>
+</div>
+
+### Dashboard Overview
+<div align="center">
+  <img src="./src/assets/lms2.jpg" alt="Dashboard Overview" width="85%" />
+  <p><em>Figure 2: Main Dashboard Overview</em></p>
+</div>
+
+### Features & Management Interface
+<div align="center">
+  <img src="./src/assets/lms3.jpg" alt="Features & Management" width="85%" />
+  <p><em>Figure 3: Features and Management Interface</em></p>
+</div>
+
+---
+
 ## 🛠️ Tech Stack
 
 | Layer | Technology | Purpose |
@@ -81,3 +104,120 @@ A modern, comprehensive Learning Management System built for universities to str
 ---
 
 ## 📁 Project Structure
+
+```
+college-lms/
+├── src/
+│   ├── assets/              # Static images and media files
+│   │   ├── lms11.png        # Welcome & Login Screen
+│   │   ├── lms2.png         # Dashboard Overview
+│   │   └── lms3.png         # Features & Management Interface
+│   ├── components/          # Reusable React components
+│   ├── pages/               # Page components
+│   ├── utils/               # Utility functions
+│   ├── styles/              # Global stylesheets
+│   ├── firebase/            # Firebase configuration
+│   ├── App.jsx              # Main App component
+│   └── main.jsx             # Entry point
+├── public/                  # Static public assets
+├── package.json             # Project dependencies
+├── vite.config.js           # Vite configuration
+├── index.html               # HTML template
+└── README.md                # Project documentation
+```
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js (v14+ recommended)
+- npm or yarn package manager
+- Firebase account for backend setup
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/wasiakbar8/college-lms.git
+   cd college-lms
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up Firebase credentials**
+   - Create a Firebase project at [Firebase Console](https://console.firebase.google.com)
+   - Add your Firebase configuration to the project
+
+4. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+
+5. **Build for production**
+   ```bash
+   npm run build
+   ```
+
+---
+
+## 👥 User Roles
+
+### Student
+- View personal academic information
+- Track attendance and grades
+- Access course materials
+- Manage fee payments
+- View class schedule
+
+### Administrator
+- Manage student records
+- Create and assign courses
+- Monitor system analytics
+- Manage fee structures
+- Oversee attendance records
+
+---
+
+## 🔐 Authentication
+
+The LMS uses **Firebase Authentication** to ensure secure access:
+
+- Email/Password authentication
+- Role-based access control (RBAC)
+- Session-based authentication with auto-logout
+- Protected routes based on user roles
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+---
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
+
+## 📞 Support
+
+For support, please open an issue in the [GitHub repository](https://github.com/wasiakbar8/college-lms/issues).
+
+---
+
+<div align="center">
+  <p><strong>Made with ❤️ by wasiakbar8</strong></p>
+</div>
