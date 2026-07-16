@@ -1,232 +1,107 @@
-# 🎓 University LMS - Learning Management System
+# 🎓 University LMS (Learning Management System)
 
-A modern, comprehensive Learning Management System built for universities to streamline academic operations and enhance student-institution interactions.
+> A modern, highly intuitive, and comprehensive Learning Management System built for academic institutions to streamline administrative operations and elevate student-faculty interactions.
 
 <div align="center">
-  
-![React](https://img.shields.io/badge/React-18+-61DAFB?style=flat-square&logo=react&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-Latest-646CFF?style=flat-square&logo=vite&logoColor=white)
-![Firebase](https://img.shields.io/badge/Firebase-Realtime-FFCA28?style=flat-square&logo=firebase&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-94.3%-F7DF1E?style=flat-square&logo=javascript&logoColor=white)
-![CSS](https://img.shields.io/badge/CSS-5.5%-1572B6?style=flat-square&logo=css3&logoColor=white)
-![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square)
+
+![React](https://img.shields.io/badge/React-18+-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![Vite](https://img.shields.io/badge/Vite-Latest-646CFF?style=for-the-badge&logo=vite&logoColor=white)
+![Firebase](https://img.shields.io/badge/Firebase-Realtime-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+
+### 🌐 [Explore the Live Demo](https://college-lms-728h.vercel.app/)
 
 </div>
 
 ---
 
-## 🚀 Live Demo
+## 📖 Table of Contents
 
-**[Visit the Live Application](https://college-lms-728h.vercel.app/)**
-
-Experience the LMS in action: https://college-lms-728h.vercel.app/
-
----
-
-## 📋 Table of Contents
-
-- [Live Demo](#-live-demo)
-- [Features](#features)
-- [Screenshots](#screenshots)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [User Roles](#user-roles)
-- [Core Modules](#core-modules)
-- [Key Features Breakdown](#key-features-breakdown)
-- [Architecture](#architecture)
-- [Authentication](#authentication)
-- [Contributing](#contributing)
-- [License](#license)
+* [✨ Key Features](#-key-features)
+  * [Student Portal](#-student-portal)
+  * [Admin Portal](#-admin-portal)
+* [🛠️ Tech Stack](#️-tech-stack)
+* [📸 App Walkthrough](#-app-walkthrough)
+* [📁 Project Architecture](#-project-architecture)
+* [🚀 Getting Started](#-getting-started)
+* [🔐 Authentication & Security](#-authentication--security)
+* [🤝 Contributing](#-contributing)
+* [📜 License](#-license)
 
 ---
 
-## ✨ Features
+## ✨ Key Features
 
-### 🎯 Core Functionality
-
-- **Dual Role System**: Separate interfaces for Students and Administrators
-- **Role-Based Access Control**: Secure, protected routes based on user authentication
-- **Real-time Data Synchronization**: Firebase integration for live updates
-- **Session-Based Authentication**: Secure session management with automatic logout
-- **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
-- **Modern UI/UX**: Clean, intuitive interface built with React components
+### ⚙️ Core Functionality
+* **Dual-Role Ecosystem:** Dedicated dashboard layouts tailored for Students and Administrators.
+* **Role-Based Access Control (RBAC):** Guarded navigation states routing unauthenticated or unauthorized users out of sensitive views.
+* **Real-time Syncing:** Powered by Firebase Firestore for instantaneous data synchronization across active clients.
+* **Responsive Layouts:** Mobile-first, device-agnostic interface adapting effortlessly to any screen size.
 
 ### 👨‍🎓 Student Portal
+* **Personalized Dashboard:** Immediate visibility into cumulative GPA, recent announcements, and daily schedule.
+* **Course Hub:** View active enrollments alongside structured assignments and lecturer contact profiles.
+* **Smart Attendance Tracker:** Color-coded metrics showing individual module attendance percentages against requirements.
+* **Financial Terminal:** Transparent invoicing, payment history logging, and active late-fee calculators.
 
-- **Dashboard**: Personalized academic overview and quick access to key information
-- **Profile Management**: View and manage personal and academic details
-- **Course Management**: Browse enrolled courses with faculty information
-- **Attendance Tracking**: Subject-wise attendance records and statistics
-- **Results & Grades**: View semester performance and cumulative GPA
-- **Fee Management**: Invoice tracking, payment history, and late fee calculations
-- **Timetable**: Personalized class schedule and room allocations
-- **Transcript**: Academic records and certification documents
-
-### 👨‍💼 Administrator Portal
-
-- **Dashboard**: System-wide analytics and key performance indicators
-- **Student Management**: Add, update, and manage student records and enrollments
-- **Course Management**: Create and manage courses with faculty assignments
-- **Attendance Management**: Track and manage class attendance records
-- **Results Management**: Input and manage student grades and results
-- **Fee Management**: Configure fee structures and track payments
-- **Timetable Management**: Create and manage class schedules and allocations
-
----
-
-## 📸 Screenshots
-
-### Welcome & Login Interface
-<div align="center">
-  <img src="./src/assets/lms11.jpg" alt="Welcome & Login Screen" width="85%" />
-  <p><em>Figure 1: Welcome and Login Interface</em></p>
-</div>
-
-### Dashboard Overview
-<div align="center">
-  <img src="./src/assets/lms2.jpg" alt="Dashboard Overview" width="85%" />
-  <p><em>Figure 2: Main Dashboard Overview</em></p>
-</div>
-
-### Features & Management Interface
-<div align="center">
-  <img src="./src/assets/lms3.jpg" alt="Features & Management" width="85%" />
-  <p><em>Figure 3: Features and Management Interface</em></p>
-</div>
+### 👨‍💼 Admin Portal
+* **System Analytics:** High-level operational overview including total active students, course distributions, and financial metrics.
+* **Academic Provisioning:** Intuitive CRUD portals to easily manage student directories, assign module lecturers, and manage grade distribution.
+* **Scheduler Engine:** Interactive conflicts-free timetable allocator tool.
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Frontend Framework** | React 18+ | UI library and component management |
-| **Build Tool** | Vite | Fast build tooling and dev server |
-| **Routing** | React Router v6 | Client-side navigation and routing |
-| **Backend/Database** | Firebase Firestore | Real-time NoSQL database |
-| **Authentication** | Firebase Auth | Secure user authentication |
-| **Icons** | Lucide React | Modern, customizable icons |
-| **Styling** | CSS3 | Custom styling and responsive design |
-| **Language** | JavaScript (ES6+) | Core application language |
+| Layer | Component | Description |
+| :--- | :--- | :--- |
+| **Frontend Core** | `React 18+` | Declarative UI structure utilizing functional component hooks |
+| **Build Engine** | `Vite` | Next-gen hot module replacement (HMR) & rapid bundler tooling |
+| **Routing Manager** | `React Router v6` | Declarative client-side routing hierarchy with protected layout wrappers |
+| **Backend / DB** | `Firebase Firestore` | Real-time scalable NoSQL document database cloud architecture |
+| **Identity Service**| `Firebase Auth` | Secure persistent token-based user authentication engine |
+| **Design / Icons** | `CSS3` & `Lucide React` | High-fidelity fluid design patterns with minimalist iconography |
 
 ---
 
-## 📁 Project Structure
+## 📸 App Walkthrough
 
-```
+### 🔒 Gateway Authentication
+<div align="center">
+  <img src="./src/assets/lms11.jpg" alt="Welcome & Login Screen" width="90%" style="border-radius: 8px; border: 1px solid #ddd;" />
+  <p><i>Figure 1: Portal authentication interface featuring dynamic role detection.</i></p>
+</div>
+
+### 📊 Operations Dashboard
+<div align="center">
+  <img src="./src/assets/lms2.jpg" alt="Dashboard Overview" width="90%" style="border-radius: 8px; border: 1px solid #ddd;" />
+  <p><i>Figure 2: Real-time telemetry feed displaying core system performance indicators.</i></p>
+</div>
+
+### 🛠️ Configuration Portal
+<div align="center">
+  <img src="./src/assets/lms3.jpg" alt="Features & Management" width="90%" style="border-radius: 8px; border: 1px solid #ddd;" />
+  <p><i>Figure 3: Multi-tier administration configuration interface.</i></p>
+</div>
+
+---
+
+## 📁 Project Architecture
+
+```text
 college-lms/
 ├── src/
-│   ├── assets/              # Static images and media files
-│   │   ├── lms11.png        # Welcome & Login Screen
-│   │   ├── lms2.png         # Dashboard Overview
-│   │   └── lms3.png         # Features & Management Interface
-│   ├── components/          # Reusable React components
-│   ├── pages/               # Page components
-│   ├── utils/               # Utility functions
-│   ├── styles/              # Global stylesheets
-│   ├── firebase/            # Firebase configuration
-│   ├── App.jsx              # Main App component
-│   └── main.jsx             # Entry point
-├── public/                  # Static public assets
-├── package.json             # Project dependencies
-├── vite.config.js           # Vite configuration
-├── index.html               # HTML template
-└── README.md                # Project documentation
-```
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Node.js (v14+ recommended)
-- npm or yarn package manager
-- Firebase account for backend setup
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/wasiakbar8/college-lms.git
-   cd college-lms
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up Firebase credentials**
-   - Create a Firebase project at [Firebase Console](https://console.firebase.google.com)
-   - Add your Firebase configuration to the project
-
-4. **Start the development server**
-   ```bash
-   npm run dev
-   ```
-
-5. **Build for production**
-   ```bash
-   npm run build
-   ```
-
----
-
-## 👥 User Roles
-
-### Student
-- View personal academic information
-- Track attendance and grades
-- Access course materials
-- Manage fee payments
-- View class schedule
-
-### Administrator
-- Manage student records
-- Create and assign courses
-- Monitor system analytics
-- Manage fee structures
-- Oversee attendance records
-
----
-
-## 🔐 Authentication
-
-The LMS uses **Firebase Authentication** to ensure secure access:
-
-- Email/Password authentication
-- Role-based access control (RBAC)
-- Session-based authentication with auto-logout
-- Protected routes based on user roles
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
-
-## 📝 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-## 📞 Support
-
-For support, please open an issue in the [GitHub repository](https://github.com/wasiakbar8/college-lms/issues).
-
----
-
-<div align="center">
-  <p><strong>Made with ❤️ by wasiakbar8</strong></p>
-</div>
+│   ├── assets/              # Static media files, high-res images, and logos
+│   ├── components/          # Globally shared Atomic UI elements (Buttons, Inputs, Cards)
+│   ├── pages/               # Stateful view components mapped to active routes
+│   │   ├── Student/         # Dedicated views context for Student workflows
+│   │   └── Admin/           # Dedicated views context for Administration workflows
+│   ├── utils/               # Shared business logic and helper functions
+│   ├── styles/              # Global stylesheets & design-system rule sheets
+│   ├── firebase/            # Initialization configs and Firestore CRUD service models
+│   ├── App.jsx              # Application root entry point with router mappings
+│   └── main.jsx             # DOM mounting engine
+├── public/                  # App manifest configurations and public web assets
+├── package.json             # Engine dependency declarations
+└── vite.config.js           # Core compiler and runtime configs
